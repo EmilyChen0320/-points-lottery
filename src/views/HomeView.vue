@@ -4,13 +4,17 @@ import { useActivityStore } from '../stores/activityStore'
 import ActivityCard from '../components/ActivityCard.vue'
 import NavBar from '../components/layout/NavBar.vue'
 import giftImage from '../assets/images/gift.png'
+import backgroundImage from '../assets/images/background.png'
 
 const activityStore = useActivityStore()
 const { activities } = storeToRefs(activityStore)
 </script>
 
 <template>
-  <main class="mx-auto min-h-screen w-full max-w-[393px] bg-primary">
+  <main
+    class="mx-auto min-h-screen w-full max-w-[393px] bg-cover bg-top bg-no-repeat"
+    :style="{ backgroundImage: `url(${backgroundImage})` }"
+  >
     <NavBar title="我的集點活動" />
     <section class="relative h-[122px] overflow-hidden px-6 pt-6 text-white">
       <div class="mt-8 max-w-[200px]">

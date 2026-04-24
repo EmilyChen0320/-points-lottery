@@ -1,5 +1,8 @@
 <script setup>
+import { useRouter } from 'vue-router'
 import StatusBadge from './StatusBadge.vue'
+
+const router = useRouter()
 
 defineProps({
   activity: {
@@ -7,6 +10,10 @@ defineProps({
     required: true,
   },
 })
+
+const goToRedeemPage = () => {
+  router.push('/redeem')
+}
 </script>
 
 <template>
@@ -18,7 +25,7 @@ defineProps({
       <img
         :src="activity.image"
         :alt="activity.title"
-        class="h-[88px] w-[88px] rounded-md object-cover"
+        class="h-[88px] w-[88px] self-center rounded-md object-cover object-center"
       />
       <div class="flex min-w-0 flex-1 flex-col gap-1">
         <StatusBadge :status="activity.status" />
@@ -34,7 +41,8 @@ defineProps({
           <button
             v-if="activity.status !== 'ended'"
             type="button"
-            class="h-7 w-[72px] rounded-lg bg-[#A660A3] px-3 py-1 text-xs font-semibold leading-5 text-white"
+            class="h-7 w-[72px] rounded-sm bg-[#A660A3] px-3 py-1 text-xs font-semibold leading-5 text-white"
+            @click="goToRedeemPage"
           >
             前往兌換
           </button>

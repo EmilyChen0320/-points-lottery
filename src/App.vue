@@ -6,6 +6,7 @@ import liffService from './services/liffService'
 
 const router = useRouter()
 const userStore = useUserStore()
+const initialTargetPath = router.currentRoute.value.fullPath
 
 const bootstrapLiff = async () => {
   try {
@@ -33,7 +34,7 @@ const bootstrapLiff = async () => {
     })
 
     if (router.currentRoute.value.path === '/loading') {
-      await router.replace('/')
+      await router.replace(initialTargetPath === '/loading' ? '/' : initialTargetPath)
     }
   } catch (error) {
     console.error('LIFF 初始化失敗:', error)
@@ -43,9 +44,6 @@ const bootstrapLiff = async () => {
 }
 
 onMounted(async () => {
-  if (router.currentRoute.value.path !== '/loading') {
-    await router.replace('/loading')
-  }
   await bootstrapLiff()
 })
 </script>
