@@ -15,7 +15,7 @@ const resultTickets = [
     class="mx-auto min-h-screen w-full max-w-[393px] bg-cover bg-top bg-no-repeat"
     :style="{ backgroundImage: `url(${backgroundImage})` }"
   >
-    <NavBar title="" />
+    <NavBar title="我的抽獎券" />
 
     <section class="px-4 pb-0 pt-4 text-white">
       <div class="relative overflow-visible px-4 py-3">

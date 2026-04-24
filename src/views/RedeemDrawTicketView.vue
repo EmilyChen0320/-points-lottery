@@ -10,20 +10,26 @@ const route = useRoute()
 
 const redeemStatus = ref(route.query.status === 'fail' ? 'fail' : route.query.status === 'success' ? 'success' : 'idle')
 const costPoints = 50
-const currentPoints = 350
+const currentPoints = ref(350)
 const fallbackPoints = 20
-const currentTicketCount = 3
-const hasEnoughPoints = computed(() => currentPoints >= costPoints)
+const currentTicketCount = ref(3)
+const hasEnoughPoints = computed(() => currentPoints.value >= costPoints)
 
 const statusTitle = computed(() => (redeemStatus.value === 'success' ? '抽獎券取得成功' : '兌換失敗'))
 const statusChipText = computed(() =>
   redeemStatus.value === 'success'
-    ? `已扣除 ${costPoints} 點，剩餘 ${currentPoints - costPoints} 點`
+    ? `已扣除 ${costPoints} 點，剩餘 ${currentPoints.value} 點`
     : `點數不足：需要 ${costPoints} 點，目前 ${fallbackPoints} 點`,
 )
 
 const handleRedeemTicket = () => {
-  redeemStatus.value = hasEnoughPoints.value ? 'success' : 'fail'
+  if (!hasEnoughPoints.value) {
+    redeemStatus.value = 'fail'
+    return
+  }
+  currentPoints.value -= costPoints
+  currentTicketCount.value += 1
+  redeemStatus.value = 'success'
 }
 
 const backToRedeemHome = () => {
@@ -31,7 +37,7 @@ const backToRedeemHome = () => {
 }
 
 const goToMyDrawTickets = () => {
-  router.push('/redeem/my-draw-tickets')
+  router.push({ name: 'my-draw-tickets' })
 }
 </script>
 
@@ -58,7 +64,7 @@ const goToMyDrawTickets = () => {
             <div class="flex items-start justify-between gap-3">
               <div>
                 <p class="text-xs text-[#495057]">每張所需：50 點</p>
-                <p class="mt-1 text-xs font-medium text-[#A660A3]">我的抽獎券：3 張</p>
+                <p class="mt-1 text-xs font-medium text-[#A660A3]">我的抽獎券：{{ currentTicketCount }} 張</p>
               </div>
               <p class="text-xs text-[#495057]">今日剩餘：2 張</p>
             </div>
@@ -109,7 +115,7 @@ const goToMyDrawTickets = () => {
         <p class="mt-2 text-[20px] font-bold tracking-[0.03em] text-[#A660A3]">A-0004</p>
 
         <div class="mt-3 rounded-md border border-[#A660A3] bg-[rgba(166,96,163,0.05)] p-3">
-          <p class="text-xs text-[#495057]">目前持有：{{ currentTicketCount + 1 }} 張</p>
+          <p class="text-xs text-[#495057]">目前持有：{{ currentTicketCount }} 張</p>
           <p class="mt-1 text-xs text-[#A660A3]">開獎：05/01 20:00</p>
         </div>
       </article>
