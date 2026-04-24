@@ -1,0 +1,16 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: 'Noto Sans TC', 'Noto Sans JP', 'Inter', sans-serif;
+  background: #f8f5fb;
+  color: #495057;
+}
+
+#app {
+  min-height: 100vh;
+}
