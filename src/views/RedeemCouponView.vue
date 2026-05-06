@@ -1,33 +1,168 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import NavBar from '../components/layout/NavBar.vue'
 import backgroundImage from '../assets/images/background.png'
 import barcodeScanImage from '../assets/images/barcode-scan.png'
+import pointActivityService from '../services/pointActivityService'
+import { useUserStore } from '../stores/userStore'
 
 const router = useRouter()
 const route = useRoute()
+const userStore = useUserStore()
+const { userId } = storeToRefs(userStore)
 
-const redeemStatus = ref(route.query.status === 'fail' ? 'fail' : route.query.status === 'success' ? 'success' : 'idle')
-const costPoints = 100
-const currentPoints = 350
-const fallbackPoints = 50
-const hasEnoughPoints = computed(() => currentPoints >= costPoints)
+const loading = ref(true)
+const redeeming = ref(false)
+const errorMessage = ref('')
+const redeemErrorMessage = ref('')
+const redeemStatus = ref('idle')
+const coupon = ref(null)
+const couponCode = ref('')
+const userCouponCodeDetail = ref(null)
+const couponCodeLoading = ref(false)
+const currentPoints = ref(Number(route.query.points ?? 0))
+const activityId = computed(() => String(route.params.activityId ?? ''))
+const couponId = computed(() => String(route.params.couponId ?? ''))
+const costPoints = computed(() => Number(coupon.value?.points_required ?? 0))
+const hasEnoughPoints = computed(() => {
+  if (!currentPoints.value) return true
+  return currentPoints.value >= costPoints.value
+})
+const remainingQuota = computed(() => {
+  const totalQuota = Number(coupon.value?.total_quota ?? 0)
+  if (!totalQuota) return '--'
+  return `${totalQuota}`
+})
+const userQuotaText = computed(() => {
+  const userQuota = Number(coupon.value?.user_quota ?? 0)
+  if (!userQuota) return '--'
+  return `${userQuota}`
+})
+const dateText = computed(() => {
+  const start = coupon.value?.start_date ? formatDate(coupon.value.start_date) : '--/--'
+  const end = coupon.value?.end_date ? formatDate(coupon.value.end_date) : '--/--'
+  return `${start} ~ ${end}`
+})
+const lineUserId = computed(() => userId.value || window.endpoint?.lineUserId || window.endpoint?.testUserId || '')
+const resolvedCouponCode = computed(
+  () => userCouponCodeDetail.value?.code || couponCode.value || '請至會員中心查看',
+)
 
 const statusTitle = computed(() => (redeemStatus.value === 'success' ? '兌換成功' : '兌換失敗'))
 const statusChipText = computed(() =>
   redeemStatus.value === 'success'
-    ? `已扣除 ${costPoints} 點，剩餘 ${currentPoints - costPoints} 點`
-    : `點數不足：需要 ${costPoints} 點，目前 ${fallbackPoints} 點`,
+    ? `已扣除 ${costPoints.value} 點`
+    : redeemErrorMessage.value || `點數不足：需要 ${costPoints.value} 點`,
 )
 
-const handleConfirmRedeem = () => {
-  redeemStatus.value = hasEnoughPoints.value ? 'success' : 'fail'
+const formatDate = (value) => {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '--/--'
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${month}/${day}`
+}
+
+const resolveUserCouponCodeId = (response) => {
+  const result = response?.result ?? {}
+  const data = result?.data ?? {}
+  return data?.user_coupon_code_id || data?.id || result?.id || ''
+}
+
+const toFriendlyRedeemErrorMessage = (error) => {
+  const rawMessage = String(error?.message || '')
+  if (rawMessage.includes('liffId is necessary for liff.init')) {
+    return 'LIFF 尚未初始化完成，請稍後再試'
+  }
+  return rawMessage || '兌換失敗，請稍後再試'
+}
+
+const fetchCouponInfo = async () => {
+  if (!activityId.value || !couponId.value) {
+    errorMessage.value = '缺少活動或優惠券參數'
+    loading.value = false
+    return
+  }
+
+  loading.value = true
+  errorMessage.value = ''
+
+  try {
+    const response = await pointActivityService.getCouponInfo(activityId.value, couponId.value)
+    coupon.value = response?.result?.data ?? null
+  } catch (error) {
+    errorMessage.value = error?.message || '取得優惠券資訊失敗'
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleConfirmRedeem = async () => {
+  if (!coupon.value || redeeming.value) return
+  if (!lineUserId.value) {
+    redeemStatus.value = 'fail'
+    redeemErrorMessage.value = '缺少 LINE 使用者資訊，請重新開啟頁面'
+    return
+  }
+  if (!hasEnoughPoints.value) {
+    redeemStatus.value = 'fail'
+    redeemErrorMessage.value = `點數不足：需要 ${costPoints.value} 點，目前 ${currentPoints.value} 點`
+    return
+  }
+
+  redeeming.value = true
+  redeemErrorMessage.value = ''
+
+  try {
+    const response = await pointActivityService.redeemCoupon(activityId.value, {
+      couponId: couponId.value,
+      lineUserId: lineUserId.value,
+    })
+
+    const resultData = response?.result?.data ?? {}
+    couponCode.value =
+      resultData?.code ||
+      resultData?.coupon_code ||
+      resultData?.redeem_code ||
+      ''
+
+    const userCouponCodeId = resolveUserCouponCodeId(response)
+    if (userCouponCodeId) {
+      couponCodeLoading.value = true
+      try {
+        const userCouponCodeResponse = await pointActivityService.getUserCouponCode(lineUserId.value, userCouponCodeId)
+        userCouponCodeDetail.value = userCouponCodeResponse?.result ?? null
+      } catch (couponCodeError) {
+        userCouponCodeDetail.value = null
+        console.error('取得優惠碼詳情失敗:', couponCodeError)
+      } finally {
+        couponCodeLoading.value = false
+      }
+    }
+
+    redeemStatus.value = 'success'
+    if (currentPoints.value) {
+      currentPoints.value = Math.max(currentPoints.value - costPoints.value, 0)
+    }
+  } catch (error) {
+    redeemStatus.value = 'fail'
+    redeemErrorMessage.value = toFriendlyRedeemErrorMessage(error)
+  } finally {
+    redeeming.value = false
+  }
 }
 
 const backToRedeemHome = () => {
-  router.push('/redeem')
+  if (!activityId.value) {
+    router.push('/')
+    return
+  }
+  router.push({ name: 'redeem-home', params: { activityId: activityId.value } })
 }
+
+onMounted(fetchCouponInfo)
 </script>
 
 <template>
@@ -37,12 +172,28 @@ const backToRedeemHome = () => {
   >
     <NavBar :title="redeemStatus === 'idle' ? '兌換優惠券' : '兌換結果'" />
 
-    <template v-if="redeemStatus === 'idle'">
+    <template v-if="loading">
+      <section class="px-4 pt-6">
+        <div class="rounded-lg bg-white px-4 py-10 text-center text-sm text-[#757575] shadow-[0_0_6px_rgba(0,0,0,0.10)]">
+          優惠券資料載入中...
+        </div>
+      </section>
+    </template>
+
+    <template v-else-if="errorMessage">
+      <section class="px-4 pt-6">
+        <div class="rounded-lg bg-[#fff4f4] px-4 py-10 text-center text-sm text-[#d35b5b] shadow-[0_0_6px_rgba(0,0,0,0.10)]">
+          {{ errorMessage }}
+        </div>
+      </section>
+    </template>
+
+    <template v-else-if="redeemStatus === 'idle'">
       <section class="relative h-[196px] overflow-hidden bg-[#6d4f78]">
         <div class="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/45"></div>
         <div class="relative flex h-full flex-col justify-end px-4 pb-3 text-white">
-          <h1 class="text-[20px] font-bold leading-7">母親節集點送好禮</h1>
-          <p class="mt-1 text-xs">2026-04-01 ~ 06-30</p>
+          <h1 class="text-[20px] font-bold leading-7">{{ coupon?.name || '優惠券兌換' }}</h1>
+          <p class="mt-1 text-xs">{{ dateText }}</p>
         </div>
       </section>
 
@@ -51,28 +202,31 @@ const backToRedeemHome = () => {
           class="rounded-lg border border-[#E8E8E8] bg-white p-4 shadow-[0_0_6px_rgba(0,0,0,0.10)]"
           style="border-width: 0.6px"
         >
-          <h2 class="text-[14px] font-semibold leading-5 text-[#495057]">母親節 85 折優惠券</h2>
-          <p class="mt-1 text-xs leading-4 text-[#757575]">全館商品享 85 折優惠</p>
+          <h2 class="text-[14px] font-semibold leading-5 text-[#495057]">{{ coupon?.name || '未命名優惠券' }}</h2>
+          <p class="mt-1 text-xs leading-4 text-[#757575]">{{ coupon?.description || coupon?.instructions || '暫無說明' }}</p>
 
           <div class="mt-3 rounded-md border border-[#A660A3] bg-[rgba(166,96,163,0.05)] p-3">
             <p class="text-xs text-[#757575]">所需點數</p>
             <div class="mt-2 flex items-center justify-between gap-3">
-              <p class="text-[20px] font-bold leading-6 text-[#A660A3]">100 點</p>
-              <p class="text-right text-xs text-[#A660A3]">有效期限：04/01 ~ 06/30</p>
+              <p class="text-[20px] font-bold leading-6 text-[#A660A3]">{{ costPoints }} 點</p>
+              <p class="text-right text-xs text-[#A660A3]">有效期限：{{ dateText }}</p>
             </div>
           </div>
 
-          <p class="mt-3 text-xs text-[#757575]">剩餘：358 / 500 張 | 每人限 1 張</p>
-          <p class="mt-1 text-xs font-medium text-[#009734]">我的點數：350 點（足夠）</p>
+          <p class="mt-3 text-xs text-[#757575]">總庫存：{{ remainingQuota }} 張 | 每人可兌換：{{ userQuotaText }} 張</p>
+          <p class="mt-1 text-xs font-medium text-[#009734]">
+            我的點數：{{ currentPoints || '--' }} 點（{{ hasEnoughPoints ? '足夠' : '不足' }}）
+          </p>
         </article>
 
         <div class="mt-10">
           <button
             type="button"
-            class="w-full rounded-md bg-[#A660A3] py-3 text-[17px] font-bold text-white"
+            class="w-full rounded-md bg-[#A660A3] py-3 text-[17px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            :disabled="redeeming"
             @click="handleConfirmRedeem"
           >
-            確認兌換（扣除 100 點）
+            {{ redeeming ? '兌換中...' : `確認兌換（扣除 ${costPoints} 點）` }}
           </button>
 
           <ol class="mt-3 space-y-1 text-xs leading-4 text-[#757575]">
@@ -104,10 +258,12 @@ const backToRedeemHome = () => {
         class="mt-10 rounded-lg border border-[#E8E8E8] bg-white p-4 shadow-[0_0_6px_rgba(0,0,0,0.10)]"
         style="border-width: 0.6px"
       >
-        <h2 class="text-[14px] font-semibold leading-5 text-[#495057]">母親節 85 折優惠券</h2>
+        <h2 class="text-[14px] font-semibold leading-5 text-[#495057]">{{ coupon?.name || '優惠券' }}</h2>
         <p class="mt-1 text-xs text-[#757575]">優惠碼</p>
         <div class="mt-2 rounded-md bg-[rgba(166,96,163,0.05)] p-3">
-          <p class="text-[17px] font-bold tracking-[0.03em] text-[#A660A3]">MOM2026-A3F8K</p>
+          <p class="text-[17px] font-bold tracking-[0.03em] text-[#A660A3]">
+            {{ couponCodeLoading ? '優惠碼讀取中...' : resolvedCouponCode }}
+          </p>
         </div>
         <button
           type="button"

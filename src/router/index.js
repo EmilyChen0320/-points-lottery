@@ -13,11 +13,11 @@ const router = createRouter({
   routes: [
     { path: '/loading', name: 'loading', component: LoadingView },
     { path: '/', name: 'home', component: HomeView },
-    { path: '/redeem', name: 'redeem-home', component: RedeemHomeView },
-    { path: '/redeem/coupon', name: 'redeem-coupon', component: RedeemCouponView },
-    { path: '/redeem/draw-ticket', name: 'redeem-draw-ticket', component: RedeemDrawTicketView },
+    { path: '/redeem/:activityId', name: 'redeem-home', component: RedeemHomeView },
+    { path: '/redeem/:activityId/coupon/:couponId', name: 'redeem-coupon', component: RedeemCouponView },
+    { path: '/redeem/:activityId/draw-ticket/:lotteryId', name: 'redeem-draw-ticket', component: RedeemDrawTicketView },
     { path: '/redeem/my-draw-tickets', name: 'my-draw-tickets', component: MyDrawTicketsView },
-    { path: '/redeem/lucky-wheel', name: 'redeem-lucky-wheel', component: LuckyWheelView },
+    { path: '/redeem/:activityId/lucky-wheel/:lotteryId', name: 'redeem-lucky-wheel', component: LuckyWheelView },
     { path: '/earn-success', name: 'earn-success', component: EarnSuccessView },
   ],
 })

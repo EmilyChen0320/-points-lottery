@@ -64,7 +64,12 @@ const drawAgain = () => {
 }
 
 const backToRedeemHome = () => {
-  router.push('/redeem')
+  const activityId = String(route.params.activityId ?? '')
+  if (!activityId) {
+    router.push('/')
+    return
+  }
+  router.push({ name: 'redeem-home', params: { activityId } })
 }
 </script>
 

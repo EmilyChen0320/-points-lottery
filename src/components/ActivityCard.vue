@@ -4,7 +4,7 @@ import StatusBadge from './StatusBadge.vue'
 
 const router = useRouter()
 
-defineProps({
+const props = defineProps({
   activity: {
     type: Object,
     required: true,
@@ -12,7 +12,8 @@ defineProps({
 })
 
 const goToRedeemPage = () => {
-  router.push('/redeem')
+  if (!props.activity?.id) return
+  router.push({ name: 'redeem-home', params: { activityId: String(props.activity.id) } })
 }
 </script>
 

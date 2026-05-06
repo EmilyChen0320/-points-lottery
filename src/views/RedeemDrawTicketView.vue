@@ -33,7 +33,12 @@ const handleRedeemTicket = () => {
 }
 
 const backToRedeemHome = () => {
-  router.push('/redeem')
+  const activityId = String(route.params.activityId ?? '')
+  if (!activityId) {
+    router.push('/')
+    return
+  }
+  router.push({ name: 'redeem-home', params: { activityId } })
 }
 
 const goToMyDrawTickets = () => {
