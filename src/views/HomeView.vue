@@ -1,5 +1,6 @@
 <script setup>
 import { storeToRefs } from 'pinia'
+import { onMounted } from 'vue'
 import { useActivityStore } from '../stores/activityStore'
 import ActivityCard from '../components/ActivityCard.vue'
 import NavBar from '../components/layout/NavBar.vue'
@@ -7,7 +8,15 @@ import giftImage from '../assets/images/gift.png'
 import backgroundImage from '../assets/images/background.png'
 
 const activityStore = useActivityStore()
-const { activities } = storeToRefs(activityStore)
+const { activities, loading, errorMessage } = storeToRefs(activityStore)
+
+onMounted(async () => {
+  try {
+    await activityStore.fetchActivities()
+  } catch (error) {
+    console.error('取得集點活動列表失敗:', error)
+  }
+})
 </script>
 
 <template>
@@ -30,7 +39,16 @@ const { activities } = storeToRefs(activityStore)
       </div>
     </section>
     <section class="rounded-t-[32px] bg-white px-4 py-6">
-      <div class="space-y-4">
+      <div v-if="loading" class="rounded-lg bg-[#f8f6fb] px-4 py-8 text-center text-sm text-[#7d7487]">
+        集點活動載入中...
+      </div>
+      <div v-else-if="errorMessage" class="rounded-lg bg-[#fff4f4] px-4 py-8 text-center text-sm text-[#d35b5b]">
+        {{ errorMessage }}
+      </div>
+      <div v-else-if="activities.length === 0" class="rounded-lg bg-[#f8f6fb] px-4 py-8 text-center text-sm text-[#7d7487]">
+        目前沒有可參與的集點活動
+      </div>
+      <div v-else class="space-y-4">
         <ActivityCard v-for="item in activities" :key="item.id" :activity="item" />
       </div>
     </section>

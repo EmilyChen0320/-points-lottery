@@ -1,38 +1,98 @@
 import { defineStore } from 'pinia'
+import pointActivityService from '../services/pointActivityService'
+
+const fallbackImages = [
+  'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=300&q=80',
+  'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=300&q=80',
+  'https://images.unsplash.com/photo-1493244040629-496f6d136cc3?w=300&q=80',
+]
+
+const formatDatePart = (value) => {
+  if (!value) return '--/--'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '--/--'
+
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${month}/${day}`
+}
+
+const formatPeriod = (startAt, endAt) => `${formatDatePart(startAt)} ～ ${formatDatePart(endAt)}`
+
+const getActivityStatus = (endAt) => {
+  if (!endAt) return 'ongoing'
+
+  const endDate = new Date(endAt)
+  if (Number.isNaN(endDate.getTime())) return 'ongoing'
+
+  return endDate.getTime() < Date.now() ? 'ended' : 'ongoing'
+}
+
+const mapActivityItem = (item, index) => ({
+  id: item?.id ?? `activity-${index}`,
+  title: item?.name ?? '未命名活動',
+  status: getActivityStatus(item?.end_at),
+  redeemedCount: Number(item?.user_redeem_count) || 0,
+  period: formatPeriod(item?.start_at, item?.end_at),
+  points: Number(item?.user_points) || 0,
+  image: fallbackImages[index % fallbackImages.length],
+})
+
+const resolveLineUserId = (params = {}) =>
+  params.line_user_id || window.endpoint?.lineUserId || window.endpoint?.testUserId || ''
 
 export const useActivityStore = defineStore('activity', {
   state: () => ({
-    activities: [
-      {
-        id: 'mothers-day-001',
-        title: '母親節集點送好禮',
-        status: 'ongoing',
-        redeemedCount: 3,
-        period: '04/01 ～ 06/30',
-        points: 350,
-        note: '集滿 100 點可兌換好禮',
-        image: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=300&q=80',
-      },
-      {
-        id: 'mothers-day-002',
-        title: '母親節集點送好禮',
-        status: 'ongoing',
-        redeemedCount: 3,
-        period: '04/01 ～ 06/30',
-        points: 350,
-        note: '集滿 100 點可兌換好禮',
-        image: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=300&q=80',
-      },
-      {
-        id: 'mothers-day-003',
-        title: '母親節集點送好禮',
-        status: 'ended',
-        redeemedCount: 3,
-        period: '04/01 ～ 06/30',
-        points: 350,
-        note: '集滿 100 點可兌換好禮',
-        image: 'https://images.unsplash.com/photo-1493244040629-496f6d136cc3?w=300&q=80',
-      },
-    ],
+    activities: [],
+    loading: false,
+    errorMessage: '',
+    pagination: {
+      currentPage: 1,
+      perPage: 10,
+      total: 0,
+      lastPage: 1,
+    },
   }),
+  actions: {
+    setActivitiesFromApi(result = {}) {
+      const rows = Array.isArray(result?.data) ? result.data : []
+      this.activities = rows.map(mapActivityItem)
+      this.pagination = {
+        currentPage: Number(result?.current_page) || 1,
+        perPage: Number(result?.per_page) || rows.length || 10,
+        total: Number(result?.total) || rows.length,
+        lastPage: Number(result?.last_page) || 1,
+      }
+    },
+    async fetchActivities(params = {}) {
+      this.loading = true
+      this.errorMessage = ''
+
+      try {
+        const lineUserId = resolveLineUserId(params)
+
+        const response = await pointActivityService.getPointActivities({
+          page: 1,
+          per_page: 10,
+          line_user_id: lineUserId,
+          ...params,
+        })
+
+        this.setActivitiesFromApi(response?.result ?? {})
+      } catch (error) {
+        this.activities = []
+        this.pagination = {
+          currentPage: 1,
+          perPage: 10,
+          total: 0,
+          lastPage: 1,
+        }
+        this.errorMessage = error?.response?.message || error?.message || '取得集點活動列表失敗'
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+  },
 })
