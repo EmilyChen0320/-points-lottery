@@ -25,7 +25,12 @@ const request = async (path, { method = 'GET', params = {}, body } = {}) => {
   const result = await response.json().catch(() => null)
 
   if (!response.ok) {
-    const error = new Error(result?.message || '請求失敗')
+    const apiMessage =
+      result?.message ||
+      result?.result?.message ||
+      (typeof result?.result === 'string' ? result.result : '') ||
+      '請求失敗'
+    const error = new Error(apiMessage)
     error.response = result
     error.status = response.status
     throw error
