@@ -1,76 +1,215 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import lottie from 'lottie-web'
 import NavBar from '../components/layout/NavBar.vue'
 import backgroundImage from '../assets/images/background.png'
 import giftGroupImage from '../assets/images/Group.png'
 import spinWheelAnimation from '../assets/animations/spin-wheel.json'
+import pointActivityService from '../services/pointActivityService'
+import { useUserStore } from '../stores/userStore'
 
 const router = useRouter()
 const route = useRoute()
-const wheelContainer = ref(null)
-let animationInstance = null
-const drawStatus = ref(route.query.status === 'result' ? 'result' : 'idle')
-const drawResult = ref(route.query.result === 'lose' ? 'lose' : 'win')
-const remainingCount = ref(2)
-const currentPoints = ref(350)
-const drawCost = 30
+const userStore = useUserStore()
+const { userId } = storeToRefs(userStore)
 
-onMounted(() => {
+const activityId = computed(() => String(route.params.activityId ?? ''))
+const lotteryId = computed(() => String(route.params.lotteryId ?? ''))
+const lineUserId = computed(
+  () => userId.value || window.endpoint?.lineUserId || window.endpoint?.testUserId || '',
+)
+
+const wheelContainer = ref(null)
+const wheelAnimationReady = ref(false)
+let animationInstance = null
+
+const getSanitizedSpinWheelAnimation = () => {
+  const animationData = JSON.parse(JSON.stringify(spinWheelAnimation))
+  animationData.layers = (animationData.layers ?? []).filter(
+    (layer) => layer?.nm !== 'Shape Layer 1',
+  )
+  return animationData
+}
+
+const loading = ref(true)
+const drawing = ref(false)
+const errorMessage = ref('')
+const drawErrorMessage = ref('')
+const drawStatus = ref('idle')
+const lottery = ref(null)
+const currentPoints = ref(0)
+const remainingCount = ref(0)
+const totalTicketCount = ref(0)
+
+const drawCost = computed(() => Number(lottery.value?.points_required ?? 0))
+const prizeItems = computed(() =>
+  (lottery.value?.prizes ?? []).map((item) => ({
+    id: item.id,
+    label: item.name || '未命名獎品',
+    rate: formatProbability(item.probability),
+    image: item.image || '',
+    isConsolation: Boolean(item.is_consolation),
+  })),
+)
+
+const resultTitle = computed(() => (drawStatus.value === 'success' ? '抽獎完成' : '抽獎失敗'))
+const resultChipText = computed(() => {
+  if (drawStatus.value === 'success') {
+    return `已扣除 ${drawCost.value} 點，剩餘 ${currentPoints.value} 點`
+  }
+
+  return drawErrorMessage.value || '抽獎失敗，請稍後再試'
+})
+
+const hasEnoughPoints = computed(() => currentPoints.value >= drawCost.value)
+
+const formatProbability = (value) => {
+  const numericValue = Number(value ?? 0)
+  if (Number.isNaN(numericValue)) return '--'
+  if (numericValue >= 0 && numericValue <= 1) {
+    return `${(numericValue * 100).toFixed(2)}%`
+  }
+  return `${numericValue.toFixed(2)}%`
+}
+
+const applyLotteryDetail = (data) => {
+  lottery.value = data ?? null
+  currentPoints.value = Number(data?.line_user?.points ?? 0)
+  remainingCount.value = Number(data?.line_user?.remaining_entries_today ?? 0)
+  totalTicketCount.value = Number(data?.line_user?.total_ticket_count ?? 0)
+}
+
+const fetchLotteryInfo = async () => {
+  if (!activityId.value || !lotteryId.value) {
+    errorMessage.value = '缺少活動或抽獎參數'
+    loading.value = false
+    return
+  }
+
+  loading.value = true
+  errorMessage.value = ''
+
+  try {
+    const response = await pointActivityService.getLotteryInfo(activityId.value, lotteryId.value, {
+      line_user_id: lineUserId.value,
+    })
+
+    applyLotteryDetail(response?.result?.data ?? null)
+  } catch (error) {
+    console.error('取得幸運大轉盤資料失敗:', error)
+    errorMessage.value = error?.message || '取得抽獎資料失敗，請稍後再試'
+  } finally {
+    loading.value = false
+  }
+}
+
+const initWheelAnimation = () => {
   if (!wheelContainer.value) return
+  if (animationInstance) return
+
   animationInstance = lottie.loadAnimation({
     container: wheelContainer.value,
     renderer: 'svg',
     loop: true,
     autoplay: true,
-    animationData: spinWheelAnimation,
+    animationData: getSanitizedSpinWheelAnimation(),
   })
 
-  // 避免 Lottie 背景白框顯示
   wheelContainer.value.style.background = 'transparent'
-})
+  wheelAnimationReady.value = true
+}
 
-onBeforeUnmount(() => {
+const destroyWheelAnimation = () => {
   if (animationInstance) {
     animationInstance.destroy()
     animationInstance = null
   }
-})
+  wheelAnimationReady.value = false
+}
 
-const prizeItems = [
-  { label: '頭獎 - iPhone 16', rate: '5%' },
-  { label: '二獎 - 50 點回饋', rate: '15%' },
-  { label: '未中獎', rate: '80%' },
-]
+const handleDraw = async () => {
+  if (drawing.value) return
 
-const resultTitle = computed(() => (drawResult.value === 'win' ? '恭喜中獎！' : '很可惜，未中獎'))
+  if (!lineUserId.value) {
+    drawStatus.value = 'fail'
+    drawErrorMessage.value = '缺少 LINE 使用者資訊，請重新開啟頁面'
+    return
+  }
 
-const resultChipText = computed(
-  () => `已扣除 ${drawCost} 點，剩餘 ${currentPoints.value - drawCost} 點`,
+  if (!hasEnoughPoints.value) {
+    drawStatus.value = 'fail'
+    drawErrorMessage.value = `點數不足：需要 ${drawCost.value} 點，目前 ${currentPoints.value} 點`
+    return
+  }
+
+  drawing.value = true
+  drawErrorMessage.value = ''
+
+  try {
+    await pointActivityService.redeemLottery(activityId.value, {
+      lotteryId: lotteryId.value,
+      lineUserId: lineUserId.value,
+    })
+
+    const detailResponse = await pointActivityService.getLotteryInfo(activityId.value, lotteryId.value, {
+      line_user_id: lineUserId.value,
+    })
+    applyLotteryDetail(detailResponse?.result?.data ?? null)
+    drawStatus.value = 'success'
+  } catch (error) {
+    drawStatus.value = 'fail'
+    drawErrorMessage.value = error?.message || '抽獎失敗，請稍後再試'
+  } finally {
+    drawing.value = false
+  }
+}
+
+watch(
+  () => loading.value,
+  async (isLoading) => {
+    if (!isLoading && drawStatus.value === 'idle') {
+      await nextTick()
+      initWheelAnimation()
+    }
+  },
 )
 
-const handleDraw = () => {
-  if (remainingCount.value <= 0) return
-  remainingCount.value -= 1
-  currentPoints.value -= drawCost
-  // 目前以 30% 中獎率模擬
-  drawResult.value = Math.random() < 0.3 ? 'win' : 'lose'
-  drawStatus.value = 'result'
-}
+watch(
+  () => drawStatus.value,
+  async (status) => {
+    if (status === 'idle' && !loading.value) {
+      await nextTick()
+      initWheelAnimation()
+      return
+    }
+
+    if (status !== 'idle') {
+      destroyWheelAnimation()
+    }
+  },
+)
 
 const drawAgain = () => {
   drawStatus.value = 'idle'
 }
 
 const backToRedeemHome = () => {
-  const activityId = String(route.params.activityId ?? '')
-  if (!activityId) {
+  if (!activityId.value) {
     router.push('/')
     return
   }
-  router.push({ name: 'redeem-home', params: { activityId } })
+  router.push({ name: 'redeem-home', params: { activityId: activityId.value } })
 }
+
+onMounted(async () => {
+  await fetchLotteryInfo()
+})
+
+onBeforeUnmount(() => {
+  destroyWheelAnimation()
+})
 </script>
 
 <template>
@@ -78,38 +217,66 @@ const backToRedeemHome = () => {
     class="mx-auto min-h-screen w-full max-w-[393px] bg-cover bg-top bg-no-repeat"
     :style="{ backgroundImage: `url(${backgroundImage})` }"
   >
-    <NavBar :title="drawStatus === 'idle' ? '幸運大轉盤' : '抽獎結果'" />
+    <NavBar :title="drawStatus === 'idle' ? (lottery?.name || '幸運大轉盤') : '抽獎結果'" />
 
-    <section v-if="drawStatus === 'idle'" class="px-4 pb-6 pt-8">
+    <template v-if="loading">
+      <section class="px-4 pt-6">
+        <div class="rounded-lg bg-white px-4 py-10 text-center text-sm text-[#757575] shadow-[0_0_6px_rgba(0,0,0,0.10)]">
+          抽獎資料載入中...
+        </div>
+      </section>
+    </template>
+
+    <template v-else-if="errorMessage">
+      <section class="px-4 pt-6">
+        <div class="rounded-lg bg-[#fff4f4] px-4 py-10 text-center text-sm text-[#d35b5b] shadow-[0_0_6px_rgba(0,0,0,0.10)]">
+          {{ errorMessage }}
+        </div>
+      </section>
+    </template>
+
+    <section v-else-if="drawStatus === 'idle'" class="px-4 pb-6 pt-8">
       <div class="flex flex-col items-center">
         <p class="text-[14px] font-medium text-white">今日剩餘 {{ remainingCount }} 次</p>
-        <div
-          ref="wheelContainer"
-          class="mt-1 h-[239px] w-[225px] overflow-hidden rounded-full bg-transparent [&_svg]:!bg-transparent"
-          style="clip-path: circle(42% at 50% 50%)"
-        ></div>
+        <div class="relative mt-3 flex h-[250px] w-[250px] items-center justify-center">
+          <div
+            ref="wheelContainer"
+            class="relative z-10 h-[220px] w-[220px] overflow-hidden rounded-full [&_svg]:h-full [&_svg]:w-full [&_svg]:!bg-transparent"
+          ></div>
+          <div
+            v-if="!wheelAnimationReady"
+            class="absolute inset-0 z-0 flex items-center justify-center text-sm font-medium text-white/75"
+          >
+            載入轉盤中...
+          </div>
+        </div>
       </div>
 
       <button
         type="button"
-        class="mt-6 w-full rounded-md bg-[#A660A3] py-3 text-[17px] font-bold text-white"
+        class="mt-6 w-full rounded-md bg-[#A660A3] py-3 text-[17px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+        :disabled="drawing"
         @click="handleDraw"
       >
-        抽獎（消耗 30 點）
+        {{ drawing ? '抽獎中...' : `抽獎（消耗 ${drawCost} 點）` }}
       </button>
 
       <article
         class="relative mt-6 rounded-md bg-gradient-to-b from-white to-[rgba(166,96,163,0.08)] p-4 shadow-[0_0_6px_rgba(0,0,0,0.10)]"
       >
         <h2 class="text-[14px] font-semibold text-[#A660A3]">獎品清單</h2>
-        <ul class="mt-3 space-y-1 pr-20">
-          <li
-            v-for="item in prizeItems"
-            :key="item.label"
-            class="flex items-center gap-3 text-[12px] text-[#757575]"
-          >
-            <span>{{ item.label }}</span>
-            <span class="text-right">{{ item.rate }}</span>
+        <ul class="mt-3 space-y-2 pr-[96px]">
+          <li v-for="item in prizeItems" :key="item.id" class="text-[12px] text-[#757575]">
+            <div class="min-w-0">
+              <span class="block truncate">{{ item.label }}</span>
+              <span
+                v-if="item.isConsolation"
+                class="ml-2 inline-flex rounded-sm bg-[rgba(244,159,37,0.12)] px-2 py-0.5 text-[10px] text-[#F49F25]"
+              >
+                安慰獎
+              </span>
+              <span class="mt-1 block font-medium">{{ item.rate }}</span>
+            </div>
           </li>
         </ul>
         <img
@@ -123,7 +290,7 @@ const backToRedeemHome = () => {
     <section v-else class="px-4 pb-6 pt-8">
       <div class="flex flex-col items-center">
         <div class="flex h-[42px] w-[42px] items-center justify-center rounded-full border-2 border-white text-xl font-bold text-white">
-          {{ drawResult === 'win' ? '✓' : '✕' }}
+          {{ drawStatus === 'success' ? '✓' : '✕' }}
         </div>
         <h1 class="mt-3 text-[20px] font-bold text-white">{{ resultTitle }}</h1>
         <p
@@ -134,16 +301,13 @@ const backToRedeemHome = () => {
       </div>
 
       <article
-        v-if="drawResult === 'win'"
-        class="mx-auto mt-10 flex h-[212px] w-[263px] items-center justify-center rounded-[24px] border border-[#A660A3] bg-white shadow-[0_0_6px_rgba(0,0,0,0.10)]"
+        v-if="drawStatus === 'success'"
+        class="mt-10 rounded-lg border border-[#E8E8E8] bg-white px-6 py-8 shadow-[0_0_6px_rgba(0,0,0,0.10)]"
       >
-        <div class="h-[154px] w-[154px] overflow-hidden rounded-[12px]">
-          <img
-            src="https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=800&q=80"
-            alt="iPhone 17 Pro"
-            class="h-[154px] w-[154px] rounded-[12px] object-cover"
-          />
-        </div>
+        <h2 class="text-center text-[17px] font-bold leading-5 text-[#495057]">抽獎已完成</h2>
+        <p class="mt-3 text-center text-sm leading-5 text-[#757575]">
+          目前剩餘 {{ remainingCount }} 次，持有 {{ totalTicketCount }} 張抽獎券。
+        </p>
       </article>
 
       <article
@@ -152,12 +316,13 @@ const backToRedeemHome = () => {
         style="border-width: 0.2px"
       >
         <p class="text-center text-sm font-medium leading-4 text-[#757575]">
-          今日剩餘{{ remainingCount }}次
+          {{ drawErrorMessage || '抽獎失敗，請稍後再試' }}
         </p>
       </article>
 
       <section class="mt-10 space-y-4">
         <button
+          v-if="drawStatus === 'success'"
           type="button"
           class="w-full rounded-md bg-[#A660A3] py-3 text-[17px] font-bold text-white"
           @click="drawAgain"

@@ -12,18 +12,20 @@ const buildQueryString = (params = {}) => {
   return query ? `?${query}` : ''
 }
 
-const getPointActivities = async (params = {}) => {
-  const response = await fetch(`${API_BASE_URL}/liff/point_activities${buildQueryString(params)}`, {
-    method: 'GET',
+const request = async (path, { method = 'GET', params = {}, body } = {}) => {
+  const response = await fetch(`${API_BASE_URL}${path}${buildQueryString(params)}`, {
+    method,
     headers: {
       Accept: 'application/json',
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
     },
+    ...(body ? { body: JSON.stringify(body) } : {}),
   })
 
   const result = await response.json().catch(() => null)
 
   if (!response.ok) {
-    const error = new Error(result?.message || '取得集點活動列表失敗')
+    const error = new Error(result?.message || '請求失敗')
     error.response = result
     error.status = response.status
     throw error
@@ -32,98 +34,46 @@ const getPointActivities = async (params = {}) => {
   return result
 }
 
-const getPointActivityDetail = async (activityId, params = {}) => {
-  const response = await fetch(
-    `${API_BASE_URL}/liff/point_activities/${activityId}${buildQueryString(params)}`,
-    {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-      },
-    },
-  )
+const getPointActivities = (params = {}) =>
+  request('/liff/point_activities', { params })
 
-  const result = await response.json().catch(() => null)
+const getPointActivityDetail = (activityId, params = {}) =>
+  request(`/liff/point_activities/${activityId}`, { params })
 
-  if (!response.ok) {
-    const error = new Error(result?.message || '取得集點活動詳情失敗')
-    error.response = result
-    error.status = response.status
-    throw error
-  }
+const getCouponInfo = (activityId, couponId) =>
+  request(`/liff/point_activities/${activityId}/coupons/${couponId}`)
 
-  return result
-}
-
-const getCouponInfo = async (activityId, couponId) => {
-  const response = await fetch(`${API_BASE_URL}/liff/point_activities/${activityId}/coupons/${couponId}`, {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-    },
-  })
-
-  const result = await response.json().catch(() => null)
-
-  if (!response.ok) {
-    const error = new Error(result?.message || '取得優惠券資訊失敗')
-    error.response = result
-    error.status = response.status
-    throw error
-  }
-
-  return result
-}
+const getLotteryInfo = (activityId, lotteryId, params = {}) =>
+  request(`/liff/point_activities/${activityId}/lotteries/${lotteryId}`, { params })
 
 const redeemCoupon = async (activityId, { couponId, lineUserId }) => {
-  const response = await fetch(`${API_BASE_URL}/liff/point_activities/${activityId}/redeem/coupons`, {
+  return request(`/liff/point_activities/${activityId}/redeem/coupons`, {
     method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
+    body: {
       coupon_id: couponId,
       line_user_id: lineUserId,
-    }),
+    },
   })
-
-  const result = await response.json().catch(() => null)
-
-  if (!response.ok) {
-    const error = new Error(result?.message || '兌換優惠券失敗')
-    error.response = result
-    error.status = response.status
-    throw error
-  }
-
-  return result
 }
 
-const getUserCouponCode = async (lineUserId, userCouponCodeId) => {
-  const response = await fetch(`${API_BASE_URL}/line_users/${lineUserId}/user_coupon_codes/${userCouponCodeId}`, {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
+const redeemLottery = (activityId, { lotteryId, lineUserId }) =>
+  request(`/liff/point_activities/${activityId}/redeem/lotteries`, {
+    method: 'POST',
+    body: {
+      lottery_id: lotteryId,
+      line_user_id: lineUserId,
     },
   })
 
-  const result = await response.json().catch(() => null)
-
-  if (!response.ok) {
-    const error = new Error(result?.message || '取得優惠碼資訊失敗')
-    error.response = result
-    error.status = response.status
-    throw error
-  }
-
-  return result
-}
+const getUserCouponCode = (lineUserId, userCouponCodeId) =>
+  request(`/line_users/${lineUserId}/user_coupon_codes/${userCouponCodeId}`)
 
 export default {
   getPointActivities,
   getPointActivityDetail,
   getCouponInfo,
+  getLotteryInfo,
   redeemCoupon,
+  redeemLottery,
   getUserCouponCode,
 }
