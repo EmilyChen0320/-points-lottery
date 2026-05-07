@@ -20,13 +20,13 @@ const couponRewards = ref([])
 const drawRewards = ref([])
 
 const couponFallbackImages = [
-  'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=200&q=80',
-  'https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?w=200&q=80',
+  'https://images.unsplash.com/photo-1561037404-61cd46aa615b?w=200&q=80',
+  'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=200&q=80',
 ]
 
 const drawFallbackImages = [
-  'https://images.unsplash.com/photo-1596838132731-3301c3fd4317?w=200&q=80',
-  'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=200&q=80',
+  'https://images.unsplash.com/photo-1583511655826-05700d52f4d9?w=200&q=80',
+  'https://images.unsplash.com/photo-1537151625747-768eb6cf92b2?w=200&q=80',
 ]
 
 const formatDate = (value) => {
@@ -223,7 +223,7 @@ onMounted(fetchActivityDetail)
             class="rounded-lg border border-[#A660A3] bg-white pl-3 pr-4 py-3 shadow-[0_0_1px_0_rgba(0,0,0,0.10)]"
             style="border-width: 0.6px"
           >
-            <div class="flex items-start gap-3">
+            <div class="flex items-center gap-3">
               <img :src="item.image" :alt="item.title" class="h-[65px] w-[65px] rounded-[8px] object-cover" />
               <div class="min-w-0 flex-1">
                 <p class="min-w-0 truncate text-[14px] font-medium leading-5 text-[#495057]">
@@ -259,7 +259,7 @@ onMounted(fetchActivityDetail)
             class="rounded-lg border border-[#F49F25] bg-white pl-3 pr-4 py-3 shadow-[0_0_1px_0_rgba(0,0,0,0.10)]"
             style="border-width: 0.6px"
           >
-            <div class="flex items-start gap-3">
+            <div class="flex items-center gap-3">
               <img :src="item.image" :alt="item.title" class="h-[65px] w-[65px] rounded-[8px] object-cover" />
               <div class="min-w-0 flex-1">
                 <p class="truncate text-[14px] font-medium leading-5 text-[#495057]">{{ item.title }}</p>

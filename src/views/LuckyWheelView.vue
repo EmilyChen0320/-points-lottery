@@ -271,7 +271,7 @@ onBeforeUnmount(() => {
               <span class="block truncate">{{ item.label }}</span>
               <span
                 v-if="item.isConsolation"
-                class="ml-2 inline-flex rounded-sm bg-[rgba(244,159,37,0.12)] px-2 py-0.5 text-[10px] text-[#F49F25]"
+                class="mt-1 inline-flex rounded-sm bg-[rgba(244,159,37,0.12)] px-2 py-0.5 text-[10px] text-[#F49F25]"
               >
                 安慰獎
               </span>

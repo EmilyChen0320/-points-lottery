@@ -2,9 +2,9 @@ import { defineStore } from 'pinia'
 import pointActivityService from '../services/pointActivityService'
 
 const fallbackImages = [
-  'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=300&q=80',
-  'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=300&q=80',
-  'https://images.unsplash.com/photo-1493244040629-496f6d136cc3?w=300&q=80',
+  'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=300&q=80',
+  'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=300&q=80',
+  'https://images.unsplash.com/photo-1517849845537-4d257902454a?w=300&q=80',
 ]
 
 const formatDatePart = (value) => {

@@ -1,5 +1,5 @@
 <script setup>
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 defineProps({
   title: {
@@ -9,8 +9,29 @@ defineProps({
 })
 
 const router = useRouter()
+const route = useRoute()
 
 const onBack = () => {
+  const routeName = route.name
+
+  if (routeName === 'redeem-home') {
+    router.push({ name: 'home' })
+    return
+  }
+
+  if (
+    routeName === 'redeem-coupon' ||
+    routeName === 'redeem-draw-ticket' ||
+    routeName === 'redeem-lucky-wheel' ||
+    routeName === 'my-draw-tickets'
+  ) {
+    const activityId = route.params.activityId
+    if (activityId) {
+      router.push({ name: 'redeem-home', params: { activityId } })
+      return
+    }
+  }
+
   if (window.history.length > 1) {
     router.back()
     return
