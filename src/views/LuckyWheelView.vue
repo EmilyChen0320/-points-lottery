@@ -38,6 +38,8 @@ const drawing = ref(false)
 const errorMessage = ref('')
 const drawErrorMessage = ref('')
 const drawStatus = ref('idle')
+/** 最近一次 POST redeem/lotteries 的 lottery_record（含 prize） */
+const lastLotteryRecord = ref(null)
 const lottery = ref(null)
 const currentPoints = ref(0)
 const remainingCount = ref(0)
@@ -54,13 +56,51 @@ const prizeItems = computed(() =>
   })),
 )
 
-const resultTitle = computed(() => (drawStatus.value === 'success' ? '抽獎完成' : '抽獎失敗'))
+const parseLotteryRecordFromRedeemResponse = (response) => {
+  const data = response?.result?.data ?? {}
+  const record = data?.lottery_record ?? data?.record ?? null
+  if (!record || typeof record !== 'object') return null
+  return record
+}
+
+const drawRecordStatus = computed(() => String(lastLotteryRecord.value?.status ?? '').toLowerCase())
+const drawPrize = computed(() => lastLotteryRecord.value?.prize ?? null)
+const drawPrizeTitle = computed(() => {
+  const p = drawPrize.value
+  if (!p || typeof p !== 'object') return ''
+  return String(p.name || p.content || '').trim()
+})
+const drawPrizeSubtitle = computed(() => {
+  const p = drawPrize.value
+  if (!p?.content) return ''
+  const title = drawPrizeTitle.value
+  const content = String(p.content).trim()
+  if (!content || content === title) return ''
+  return content
+})
+const drawIsConsolation = computed(() => Boolean(drawPrize.value?.is_consolation))
+const isDrawWon = computed(() => drawRecordStatus.value === 'won')
+const isDrawLost = computed(() => ['lost', 'lose', 'missed', 'no_win'].includes(drawRecordStatus.value))
+
+const resultTitle = computed(() => {
+  if (drawStatus.value !== 'success') return '抽獎失敗'
+  if (isDrawWon.value) return '恭喜中獎'
+  if (isDrawLost.value) return '銘謝惠顧'
+  return '抽獎完成'
+})
+
 const resultChipText = computed(() => {
   if (drawStatus.value === 'success') {
     return `已扣除 ${drawCost.value} 點，剩餘 ${currentPoints.value} 點`
   }
 
   return drawErrorMessage.value || '抽獎失敗，請稍後再試'
+})
+
+const drawResultCardHeadline = computed(() => {
+  if (isDrawWon.value && drawPrizeTitle.value) return '您獲得'
+  if (isDrawLost.value) return '本次未中獎'
+  return '抽獎已完成'
 })
 
 const hasEnoughPoints = computed(() => currentPoints.value >= drawCost.value)
@@ -148,10 +188,12 @@ const handleDraw = async () => {
   drawErrorMessage.value = ''
 
   try {
-    await pointActivityService.redeemLottery(activityId.value, {
+    const redeemResponse = await pointActivityService.redeemLottery(activityId.value, {
       lotteryId: lotteryId.value,
       lineUserId: lineUserId.value,
     })
+
+    lastLotteryRecord.value = parseLotteryRecordFromRedeemResponse(redeemResponse)
 
     const detailResponse = await pointActivityService.getLotteryInfo(activityId.value, lotteryId.value, {
       line_user_id: lineUserId.value,
@@ -192,6 +234,7 @@ watch(
 )
 
 const drawAgain = () => {
+  lastLotteryRecord.value = null
   drawStatus.value = 'idle'
 }
 
@@ -304,8 +347,25 @@ onBeforeUnmount(() => {
         v-if="drawStatus === 'success'"
         class="mt-10 rounded-lg border border-[#E8E8E8] bg-white px-6 py-8 shadow-[0_0_6px_rgba(0,0,0,0.10)]"
       >
-        <h2 class="text-center text-[17px] font-bold leading-5 text-[#495057]">抽獎已完成</h2>
-        <p class="mt-3 text-center text-sm leading-5 text-[#757575]">
+        <h2 class="text-center text-[17px] font-bold leading-5 text-[#495057]">{{ drawResultCardHeadline }}</h2>
+        <template v-if="isDrawWon && drawPrizeTitle">
+          <p class="mt-3 text-center text-[22px] font-bold leading-7 text-[#A660A3]">{{ drawPrizeTitle }}</p>
+          <p v-if="drawPrizeSubtitle" class="mt-2 text-center text-sm leading-5 text-[#757575]">
+            {{ drawPrizeSubtitle }}
+          </p>
+          <div v-if="drawIsConsolation" class="mt-3 flex justify-center">
+            <span class="inline-flex rounded-sm bg-[rgba(244,159,37,0.12)] px-2 py-1 text-xs font-medium text-[#F49F25]">
+              安慰獎
+            </span>
+          </div>
+        </template>
+        <p v-else-if="isDrawLost" class="mt-3 text-center text-sm leading-5 text-[#757575]">
+          感謝參與，歡迎下次再試手氣。
+        </p>
+        <p v-else class="mt-3 text-center text-sm leading-5 text-[#757575]">
+          本次抽獎已處理完成。若為定期開獎，請至活動頁或會員中心查看抽獎券與開獎結果。
+        </p>
+        <p class="mt-5 text-center text-sm leading-5 text-[#757575]">
           目前剩餘 {{ remainingCount }} 次，持有 {{ totalTicketCount }} 張抽獎券。
         </p>
       </article>
