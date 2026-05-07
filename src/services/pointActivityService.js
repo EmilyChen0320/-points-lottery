@@ -65,6 +65,12 @@ const redeemLottery = (activityId, { lotteryId, lineUserId }) =>
     },
   })
 
+const getLotteryTickets = (activityId, lotteryId, params = {}) =>
+  request(
+    `/liff/point_activities/${activityId}/lotteries/${lotteryId}/line_user_lottery_tickets`,
+    { params },
+  )
+
 const getUserCouponCode = (lineUserId, userCouponCodeId) =>
   request(`/line_users/${lineUserId}/user_coupon_codes/${userCouponCodeId}`)
 
@@ -75,5 +81,6 @@ export default {
   getLotteryInfo,
   redeemCoupon,
   redeemLottery,
+  getLotteryTickets,
   getUserCouponCode,
 }
