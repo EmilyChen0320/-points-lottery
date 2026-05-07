@@ -82,6 +82,42 @@ const drawIsConsolation = computed(() => Boolean(drawPrize.value?.is_consolation
 const isDrawWon = computed(() => drawRecordStatus.value === 'won')
 const isDrawLost = computed(() => ['lost', 'lose', 'missed', 'no_win'].includes(drawRecordStatus.value))
 
+const pickImageUrl = (obj) => {
+  if (!obj || typeof obj !== 'object') return ''
+  const candidates = [obj.image, obj.image_url, obj.cover_image, obj.cover_url, obj.thumbnail]
+  const hit = candidates.find((v) => typeof v === 'string' && v.trim())
+  return hit ? hit.trim() : ''
+}
+
+/** 兌獎回應的 prize 圖，或從活動獎品清單依 id 補上（後端常在 redeem 的 prize 省略 image） */
+const drawPrizeImageUrl = computed(() => {
+  const p = drawPrize.value
+  if (!p || typeof p !== 'object') return ''
+  const fromPrize = pickImageUrl(p)
+  if (fromPrize) return fromPrize
+  const prizeId = p.id
+  if (!prizeId || !Array.isArray(lottery.value?.prizes)) return ''
+  const match = lottery.value.prizes.find((row) => row?.id === prizeId)
+  return pickImageUrl(match || {})
+})
+
+const drawPrizeImageError = ref(false)
+
+watch(
+  () => [drawPrize.value?.id, drawPrizeImageUrl.value],
+  () => {
+    drawPrizeImageError.value = false
+  },
+)
+
+const shouldShowDrawPrizeImage = computed(
+  () => Boolean(drawPrizeImageUrl.value) && !drawPrizeImageError.value,
+)
+
+const onDrawPrizeImageError = () => {
+  drawPrizeImageError.value = true
+}
+
 const resultTitle = computed(() => {
   if (drawStatus.value !== 'success') return '抽獎失敗'
   if (isDrawWon.value) return '恭喜中獎'
@@ -349,7 +385,24 @@ onBeforeUnmount(() => {
       >
         <h2 class="text-center text-[17px] font-bold leading-5 text-[#495057]">{{ drawResultCardHeadline }}</h2>
         <template v-if="isDrawWon && drawPrizeTitle">
-          <p class="mt-3 text-center text-[22px] font-bold leading-7 text-[#A660A3]">{{ drawPrizeTitle }}</p>
+          <div v-if="shouldShowDrawPrizeImage" class="mt-5 flex justify-center">
+            <div
+              class="flex h-40 w-40 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[rgba(166,96,163,0.06)] ring-1 ring-[rgba(166,96,163,0.12)]"
+            >
+              <img
+                :src="drawPrizeImageUrl"
+                :alt="drawPrizeTitle"
+                class="max-h-full max-w-full object-contain"
+                @error="onDrawPrizeImageError"
+              />
+            </div>
+          </div>
+          <p
+            class="text-center text-[22px] font-bold leading-7 text-[#A660A3]"
+            :class="shouldShowDrawPrizeImage ? 'mt-4' : 'mt-3'"
+          >
+            {{ drawPrizeTitle }}
+          </p>
           <p v-if="drawPrizeSubtitle" class="mt-2 text-center text-sm leading-5 text-[#757575]">
             {{ drawPrizeSubtitle }}
           </p>
