@@ -140,6 +140,16 @@ const drawResultCardHeadline = computed(() => {
 })
 
 const hasEnoughPoints = computed(() => currentPoints.value >= drawCost.value)
+const isUnlimitedDailyEntries = computed(() => Number(lottery.value?.daily_limit ?? 0) === -1)
+const hasRemainingEntries = computed(
+  () => isUnlimitedDailyEntries.value || remainingCount.value > 0,
+)
+const remainingCountText = computed(() =>
+  isUnlimitedDailyEntries.value ? '今日不限次數' : `今日剩餘 ${remainingCount.value} 次`,
+)
+const drawButtonDisabled = computed(
+  () => drawing.value || !hasEnoughPoints.value || !hasRemainingEntries.value,
+)
 
 const formatProbability = (value) => {
   const numericValue = Number(value ?? 0)
@@ -217,6 +227,12 @@ const handleDraw = async () => {
   if (!hasEnoughPoints.value) {
     drawStatus.value = 'fail'
     drawErrorMessage.value = `點數不足：需要 ${drawCost.value} 點，目前 ${currentPoints.value} 點`
+    return
+  }
+
+  if (!hasRemainingEntries.value) {
+    drawStatus.value = 'fail'
+    drawErrorMessage.value = '今日抽獎次數已用完'
     return
   }
 
@@ -316,7 +332,7 @@ onBeforeUnmount(() => {
 
     <section v-else-if="drawStatus === 'idle'" class="px-4 pb-6 pt-8">
       <div class="flex flex-col items-center">
-        <p class="text-[14px] font-medium text-white">今日剩餘 {{ remainingCount }} 次</p>
+        <p class="text-[14px] font-medium text-white">{{ remainingCountText }}</p>
         <div class="relative mt-3 flex h-[250px] w-[250px] items-center justify-center">
           <div
             ref="wheelContainer"
@@ -334,7 +350,7 @@ onBeforeUnmount(() => {
       <button
         type="button"
         class="mt-6 w-full rounded-md bg-[#A660A3] py-3 text-[17px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
-        :disabled="drawing"
+        :disabled="drawButtonDisabled"
         @click="handleDraw"
       >
         {{ drawing ? '抽獎中...' : `抽獎（消耗 ${drawCost} 點）` }}
@@ -419,7 +435,7 @@ onBeforeUnmount(() => {
           本次抽獎已處理完成。若為定期開獎，請至活動頁或會員中心查看抽獎券與開獎結果。
         </p>
         <p class="mt-5 text-center text-sm leading-5 text-[#757575]">
-          目前剩餘 {{ remainingCount }} 次，持有 {{ totalTicketCount }} 張抽獎券。
+          {{ remainingCountText }}，持有 {{ totalTicketCount }} 張抽獎券。
         </p>
       </article>
 

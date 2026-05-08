@@ -31,15 +31,25 @@ const hasEnoughPoints = computed(() => {
   if (!currentPoints.value) return true
   return currentPoints.value >= costPoints.value
 })
-const remainingQuota = computed(() => {
-  const totalQuota = Number(coupon.value?.total_quota ?? 0)
+const isUnlimitedCouponTotal = computed(() => {
+  const totalLimit =
+    coupon.value?.total_limit ??
+    coupon.value?.coupon_total ??
+    coupon.value?.total_quota ??
+    coupon.value?.limit_qty
+  return Number(totalLimit) === -1
+})
+const totalQuotaText = computed(() => {
+  if (isUnlimitedCouponTotal.value) return '無限制'
+  const totalQuota = Number(coupon.value?.total_quota ?? coupon.value?.total_limit ?? 0)
   if (!totalQuota) return '--'
-  return `${totalQuota}`
+  return `${totalQuota} 張`
 })
 const userQuotaText = computed(() => {
   const userQuota = Number(coupon.value?.user_quota ?? 0)
   if (!userQuota) return '--'
-  return `${userQuota}`
+  if (userQuota === -1) return '無限制'
+  return `${userQuota} 張`
 })
 const dateText = computed(() => {
   const start = coupon.value?.start_date ? formatDate(coupon.value.start_date) : '--/--'
@@ -273,7 +283,7 @@ onMounted(fetchCouponInfo)
             </div>
           </div>
 
-          <p class="mt-3 text-xs text-[#757575]">總庫存：{{ remainingQuota }} 張 | 每人可兌換：{{ userQuotaText }} 張</p>
+          <p class="mt-3 text-xs text-[#757575]">總庫存：{{ totalQuotaText }} | 每人可兌換：{{ userQuotaText }}</p>
           <p class="mt-1 text-xs font-medium text-[#009734]">
             我的點數：{{ currentPoints || '--' }} 點（{{ hasEnoughPoints ? '足夠' : '不足' }}）
           </p>

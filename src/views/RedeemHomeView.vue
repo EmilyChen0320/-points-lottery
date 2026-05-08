@@ -72,12 +72,27 @@ const mapCoupons = (coupons = []) =>
   coupons.map((item, index) => ({
     id: item.id,
     title: item.name || '未命名優惠券',
-    remain: `剩餘 ${Number(item.remaining_sendable_qty ?? 0)} 張`,
+    remain: formatCouponRemaining(item),
     desc: item.description || item.instructions || '尚無優惠券說明',
     cost: `${Number(item.points_required ?? 0)} 點`,
     buttonText: '去兌換',
     image: couponFallbackImages[index % couponFallbackImages.length],
   }))
+
+const isUnlimitedCouponTotal = (item = {}) => {
+  const totalLimit = item.total_limit ?? item.coupon_total ?? item.total_quota ?? item.limit_qty
+  return Number(totalLimit) === -1
+}
+
+const formatCouponRemaining = (item = {}) =>
+  isUnlimitedCouponTotal(item)
+    ? '剩餘 無限制'
+    : `剩餘 ${Number(item.remaining_sendable_qty ?? 0)} 張`
+
+const formatRemainingEntries = (item, lineUser = {}) =>
+  Number(item?.daily_limit ?? 0) === -1
+    ? '今日不限次數'
+    : `今日剩餘 ${Number(lineUser.remaining_entries_today ?? 0)} 次`
 
 const mapLotteries = (lotteries = []) =>
   lotteries.map((item, index) => {
@@ -91,7 +106,7 @@ const mapLotteries = (lotteries = []) =>
       remain:
         drawMode === 'scheduled'
           ? `我的抽獎券：${Number(lineUser.total_ticket_count ?? 0)} 張`
-          : `今日剩餘 ${Number(lineUser.remaining_entries_today ?? 0)} 次`,
+          : formatRemainingEntries(item, lineUser),
       desc: drawMode === 'scheduled' ? '統一開獎' : '即時抽獎',
       cost: `${Number(item.points_required ?? 0)} 點 / ${drawMode === 'scheduled' ? '張' : '次'}`,
       extra: drawMode === 'scheduled' && item.draw_at ? `開獎：${formatDateTime(item.draw_at)}` : '',

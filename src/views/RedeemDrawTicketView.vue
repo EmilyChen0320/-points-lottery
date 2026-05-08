@@ -31,6 +31,16 @@ const remainingEntriesToday = ref(0)
 
 const pointsRequired = computed(() => Number(lottery.value?.points_required ?? 0))
 const hasEnoughPoints = computed(() => currentPoints.value >= pointsRequired.value)
+const isUnlimitedDailyEntries = computed(() => Number(lottery.value?.daily_limit ?? 0) === -1)
+const hasRemainingEntries = computed(
+  () => isUnlimitedDailyEntries.value || remainingEntriesToday.value > 0,
+)
+const remainingEntriesTodayText = computed(() =>
+  isUnlimitedDailyEntries.value ? '今日不限次數' : `今日剩餘：${remainingEntriesToday.value} 次`,
+)
+const redeemButtonDisabled = computed(
+  () => redeeming.value || !hasEnoughPoints.value || !hasRemainingEntries.value,
+)
 const drawAtText = computed(() => formatDateTime(lottery.value?.draw_at))
 const statusTitle = computed(() => (redeemStatus.value === 'success' ? '抽獎券取得成功' : '兌換失敗'))
 const statusChipText = computed(() => {
@@ -96,6 +106,12 @@ const handleRedeemTicket = async () => {
   if (!hasEnoughPoints.value) {
     redeemStatus.value = 'fail'
     redeemErrorMessage.value = `點數不足：需要 ${pointsRequired.value} 點，目前 ${currentPoints.value} 點`
+    return
+  }
+
+  if (!hasRemainingEntries.value) {
+    redeemStatus.value = 'fail'
+    redeemErrorMessage.value = '今日兌換次數已用完'
     return
   }
 
@@ -183,7 +199,7 @@ onMounted(fetchLotteryInfo)
                 <p class="text-xs text-[#495057]">每張所需：{{ pointsRequired }} 點</p>
                 <p class="mt-1 text-xs font-medium text-[#A660A3]">我的抽獎券：{{ currentTicketCount }} 張</p>
               </div>
-              <p class="text-xs text-[#495057]">今日剩餘：{{ remainingEntriesToday }} 次</p>
+              <p class="text-xs text-[#495057]">{{ remainingEntriesTodayText }}</p>
             </div>
           </div>
 
@@ -194,7 +210,7 @@ onMounted(fetchLotteryInfo)
           <button
             type="button"
             class="w-full rounded-md bg-[#A660A3] py-3 text-[17px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
-            :disabled="redeeming"
+            :disabled="redeemButtonDisabled"
             @click="handleRedeemTicket"
           >
             {{ redeeming ? '兌換中...' : `兌換抽獎券（消耗 ${pointsRequired} 點）` }}
