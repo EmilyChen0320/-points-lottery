@@ -43,7 +43,6 @@ const lastLotteryRecord = ref(null)
 const lottery = ref(null)
 const currentPoints = ref(0)
 const remainingCount = ref(0)
-const totalTicketCount = ref(0)
 
 const drawCost = computed(() => Number(lottery.value?.points_required ?? 0))
 const prizeItems = computed(() =>
@@ -164,7 +163,6 @@ const applyLotteryDetail = (data) => {
   lottery.value = data ?? null
   currentPoints.value = Number(data?.line_user?.points ?? 0)
   remainingCount.value = Number(data?.line_user?.remaining_entries_today ?? 0)
-  totalTicketCount.value = Number(data?.line_user?.total_ticket_count ?? 0)
 }
 
 const fetchLotteryInfo = async () => {
@@ -435,7 +433,7 @@ onBeforeUnmount(() => {
           本次抽獎已處理完成。若為定期開獎，請至活動頁或會員中心查看抽獎券與開獎結果。
         </p>
         <p class="mt-5 text-center text-sm leading-5 text-[#757575]">
-          {{ remainingCountText }}，持有 {{ totalTicketCount }} 張抽獎券。
+          {{ remainingCountText }}。
         </p>
       </article>
 
