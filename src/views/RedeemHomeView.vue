@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NavBar from '../components/layout/NavBar.vue'
 import backgroundImage from '../assets/images/background.png'
@@ -18,6 +18,11 @@ const activity = ref(null)
 const userPoints = ref(0)
 const couponRewards = ref([])
 const drawRewards = ref([])
+
+const parsePoints = (value) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
 
 const couponFallbackImages = [
   'https://images.unsplash.com/photo-1561037404-61cd46aa615b?w=200&q=80',
@@ -130,9 +135,12 @@ const fetchActivityDetail = async () => {
       line_user_id: lineUserId.value,
     })
     const data = response?.result?.data ?? {}
+    const pointsResponse = await pointActivityService.getLineUserPoints(activityId.value, {
+      line_user_id: lineUserId.value,
+    })
 
     activity.value = data.activity ?? null
-    userPoints.value = Number(data.line_user?.points ?? 0)
+    userPoints.value = parsePoints(pointsResponse?.result?.data?.points ?? data.line_user?.points)
     couponRewards.value = mapCoupons(data.coupons ?? [])
     drawRewards.value = mapLotteries(data.lotteries ?? [])
   } catch (error) {
@@ -167,6 +175,10 @@ const goToDrawTicketPage = (item) => {
 }
 
 onMounted(fetchActivityDetail)
+watch(
+  () => [route.params.activityId, lineUserId.value],
+  fetchActivityDetail,
+)
 </script>
 
 <template>

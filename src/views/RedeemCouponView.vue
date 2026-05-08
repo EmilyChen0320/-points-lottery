@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import NavBar from '../components/layout/NavBar.vue'
@@ -23,12 +23,12 @@ const couponCode = ref('')
 const userCouponCodeDetail = ref(null)
 const couponCodeLoading = ref(false)
 const copyFeedback = ref('')
-const currentPoints = ref(Number(route.query.points ?? 0))
+const currentPoints = ref(null)
 const activityId = computed(() => String(route.params.activityId ?? ''))
 const couponId = computed(() => String(route.params.couponId ?? ''))
 const costPoints = computed(() => Number(coupon.value?.points_required ?? 0))
 const hasEnoughPoints = computed(() => {
-  if (!currentPoints.value) return true
+  if (currentPoints.value === null) return true
   return currentPoints.value >= costPoints.value
 })
 const isUnlimitedCouponTotal = computed(() => {
@@ -59,6 +59,11 @@ const dateText = computed(() => {
 const lineUserId = computed(() => userId.value || window.endpoint?.lineUserId || window.endpoint?.testUserId || '')
 
 const COUPON_CODE_PLACEHOLDER = '請至會員中心查看'
+
+const parsePoints = (value) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
 
 /** 從 API 物件取出優惠碼字串（支援巢狀 user_coupon_code 與多種欄位名） */
 const extractCouponCodeFromObject = (obj) => {
@@ -145,8 +150,18 @@ const fetchCouponInfo = async () => {
   errorMessage.value = ''
 
   try {
-    const response = await pointActivityService.getCouponInfo(activityId.value, couponId.value)
-    coupon.value = response?.result?.data ?? null
+    const [couponResponse, pointsResponse] = await Promise.all([
+      pointActivityService.getCouponInfo(activityId.value, couponId.value),
+      lineUserId.value
+        ? pointActivityService.getLineUserPoints(activityId.value, {
+            line_user_id: lineUserId.value,
+          })
+        : Promise.resolve(null),
+    ])
+    coupon.value = couponResponse?.result?.data ?? null
+    currentPoints.value = pointsResponse
+      ? parsePoints(pointsResponse?.result?.data?.points)
+      : currentPoints.value
   } catch (error) {
     errorMessage.value = error?.message || '取得優惠券資訊失敗'
   } finally {
@@ -198,7 +213,7 @@ const handleConfirmRedeem = async () => {
     }
 
     redeemStatus.value = 'success'
-    if (currentPoints.value) {
+    if (currentPoints.value !== null) {
       currentPoints.value = Math.max(currentPoints.value - costPoints.value, 0)
     }
   } catch (error) {
@@ -233,6 +248,10 @@ const backToRedeemHome = () => {
 }
 
 onMounted(fetchCouponInfo)
+watch(
+  () => [route.params.activityId, route.params.couponId, lineUserId.value],
+  fetchCouponInfo,
+)
 </script>
 
 <template>
@@ -285,7 +304,7 @@ onMounted(fetchCouponInfo)
 
           <p class="mt-3 text-xs text-[#757575]">總庫存：{{ totalQuotaText }} | 每人可兌換：{{ userQuotaText }}</p>
           <p class="mt-1 text-xs font-medium text-[#009734]">
-            我的點數：{{ currentPoints || '--' }} 點（{{ hasEnoughPoints ? '足夠' : '不足' }}）
+            我的點數：{{ currentPoints ?? '--' }} 點（{{ hasEnoughPoints ? '足夠' : '不足' }}）
           </p>
         </article>
 

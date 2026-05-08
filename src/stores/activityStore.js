@@ -29,14 +29,19 @@ const getActivityStatus = (endAt) => {
   return endDate.getTime() < Date.now() ? 'ended' : 'ongoing'
 }
 
-const mapActivityItem = (item, index) => ({
-  id: item?.id ?? `activity-${index}`,
+const parsePoints = (value) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+const mapActivityItem = (item, index, baseIndex = 0) => ({
+  id: item?.id ?? `activity-${baseIndex + index}`,
   title: item?.name ?? '未命名活動',
   status: getActivityStatus(item?.end_at),
-  redeemedCount: Number(item?.user_redeem_count) || 0,
+  redeemedCount: parsePoints(item?.user_redeem_count),
   period: formatPeriod(item?.start_at, item?.end_at),
-  points: Number(item?.user_points) || 0,
-  image: fallbackImages[index % fallbackImages.length],
+  points: parsePoints(item?.user_points),
+  image: fallbackImages[(baseIndex + index) % fallbackImages.length],
 })
 
 const resolveLineUserId = (params = {}) =>
@@ -55,38 +60,80 @@ export const useActivityStore = defineStore('activity', {
     },
   }),
   actions: {
-    setActivitiesFromApi(result = {}) {
+    setActivitiesFromApi(result = {}, { append = false } = {}) {
       const rows = Array.isArray(result?.data) ? result.data : []
-      this.activities = rows.map(mapActivityItem)
+      const baseIndex = append ? this.activities.length : 0
+      const mappedRows = rows.map((item, index) => mapActivityItem(item, index, baseIndex))
+      this.activities = append ? [...this.activities, ...mappedRows] : mappedRows
       this.pagination = {
-        currentPage: Number(result?.current_page) || 1,
-        perPage: Number(result?.per_page) || rows.length || 10,
-        total: Number(result?.total) || rows.length,
-        lastPage: Number(result?.last_page) || 1,
+        currentPage: parsePoints(result?.current_page) || 1,
+        perPage: parsePoints(result?.per_page) || rows.length || 10,
+        total: parsePoints(result?.total) || rows.length,
+        lastPage: parsePoints(result?.last_page) || 1,
       }
+    },
+    async refreshActivityPoints(lineUserId, activityIds = []) {
+      if (!lineUserId || this.activities.length === 0) return
+      const targetActivities =
+        activityIds.length > 0
+          ? this.activities.filter((item) => activityIds.includes(item.id))
+          : this.activities
+      if (targetActivities.length === 0) return
+
+      const pointsResults = await Promise.all(
+        targetActivities.map(async (item) => {
+          if (!item?.id) return { id: item?.id, points: item?.points ?? 0 }
+
+          try {
+            const response = await pointActivityService.getLineUserPoints(item.id, {
+              line_user_id: lineUserId,
+            })
+            const latestPoints = parsePoints(response?.result?.data?.points)
+            return { id: item.id, points: latestPoints }
+          } catch (error) {
+            console.error(`取得活動 ${item.id} 最新點數失敗:`, error)
+            return { id: item.id, points: item?.points ?? 0 }
+          }
+        }),
+      )
+
+      const pointsMap = new Map(pointsResults.map((entry) => [entry.id, entry.points]))
+      this.activities = this.activities.map((item) => ({
+        ...item,
+        points: pointsMap.get(item.id) ?? item.points,
+      }))
     },
     async fetchActivities(params = {}) {
       this.loading = true
       this.errorMessage = ''
 
       try {
-        const lineUserId = resolveLineUserId(params)
+        const { append = false, ...requestParams } = params
+        const lineUserId = resolveLineUserId(requestParams)
+        const nextPage = append ? this.pagination.currentPage + 1 : 1
 
         const response = await pointActivityService.getPointActivities({
-          page: 1,
+          page: nextPage,
           per_page: 10,
           line_user_id: lineUserId,
-          ...params,
+          ...requestParams,
         })
 
-        this.setActivitiesFromApi(response?.result ?? {})
+        const rows = Array.isArray(response?.result?.data) ? response.result.data : []
+        this.setActivitiesFromApi(response?.result ?? {}, { append })
+        await this.refreshActivityPoints(
+          lineUserId,
+          rows.map((item) => item?.id).filter(Boolean),
+        )
       } catch (error) {
-        this.activities = []
-        this.pagination = {
-          currentPage: 1,
-          perPage: 10,
-          total: 0,
-          lastPage: 1,
+        if (!params.append) {
+          this.activities = []
+          this.pagination = {
+            currentPage: 1,
+            perPage: 10,
+            total: 0,
+            lastPage: 1,
+          }
         }
         this.errorMessage = error?.response?.message || error?.message || '取得集點活動列表失敗'
         throw error

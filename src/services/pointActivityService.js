@@ -45,6 +45,9 @@ const getPointActivities = (params = {}) =>
 const getPointActivityDetail = (activityId, params = {}) =>
   request(`/liff/point_activities/${activityId}`, { params })
 
+const getLineUserPoints = (activityId, params = {}) =>
+  request(`/liff/point_activities/${activityId}/line_user_points`, { params })
+
 const getCouponInfo = (activityId, couponId) =>
   request(`/liff/point_activities/${activityId}/coupons/${couponId}`)
 
@@ -82,6 +85,7 @@ const getUserCouponCode = (lineUserId, userCouponCodeId) =>
 export default {
   getPointActivities,
   getPointActivityDetail,
+  getLineUserPoints,
   getCouponInfo,
   getLotteryInfo,
   redeemCoupon,
