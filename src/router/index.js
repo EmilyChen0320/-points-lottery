@@ -9,7 +9,7 @@ import LuckyWheelView from '../views/LuckyWheelView.vue'
 import MyDrawTicketsView from '../views/MyDrawTicketsView.vue'
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory('/liff/point_activity/'),
   routes: [
     { path: '/loading', name: 'loading', component: LoadingView },
     { path: '/', name: 'home', component: HomeView },
