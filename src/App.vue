@@ -1,12 +1,14 @@
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from './stores/userStore'
 import liffService from './services/liffService'
+import LoadingView from './views/LoadingView.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
 const initialTargetPath = router.currentRoute.value.fullPath
+const ready = ref(false)
 
 const bootstrapLiff = async () => {
   try {
@@ -39,7 +41,7 @@ const bootstrapLiff = async () => {
   } catch (error) {
     console.error('LIFF 初始化失敗:', error)
   } finally {
-    // 保持應用可繼續使用，即使 LIFF 初始化失敗
+    ready.value = true
   }
 }
 
@@ -49,5 +51,6 @@ onMounted(async () => {
 </script>
 
 <template>
-  <router-view />
+  <LoadingView v-if="!ready" />
+  <router-view v-else />
 </template>

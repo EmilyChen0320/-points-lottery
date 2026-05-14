@@ -1,17 +1,24 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
+import { useUserStore } from '../stores/userStore'
 import NavBar from '../components/layout/NavBar.vue'
 import backgroundImage from '../assets/images/background.png'
 import pointActivityService from '../services/pointActivityService'
 
 const router = useRouter()
 const route = useRoute()
+const userStore = useUserStore()
+const { userId, testMode } = storeToRefs(userStore)
 
 const activityId = computed(() => String(route.params.activityId ?? ''))
-const lineUserId = computed(
-  () => String(route.query.line_user_id ?? window.endpoint?.lineUserId ?? window.endpoint?.testUserId ?? ''),
-)
+const lineUserId = computed(() => {
+  if (testMode.value) {
+    return userId.value || String(route.query.line_user_id ?? window.endpoint?.lineUserId ?? window.endpoint?.testUserId ?? '')
+  }
+  return userId.value || String(route.query.line_user_id ?? '')
+})
 const loading = ref(true)
 const errorMessage = ref('')
 const activity = ref(null)

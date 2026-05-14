@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import pointActivityService from '../services/pointActivityService'
+import { useUserStore } from './userStore'
 
 const fallbackImages = [
   'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=300&q=80',
@@ -44,8 +45,13 @@ const mapActivityItem = (item, index, baseIndex = 0) => ({
   image: fallbackImages[(baseIndex + index) % fallbackImages.length],
 })
 
-const resolveLineUserId = (params = {}) =>
-  params.line_user_id || window.endpoint?.lineUserId || window.endpoint?.testUserId || ''
+const resolveLineUserId = (params = {}) => {
+  const userStore = useUserStore()
+  if (userStore.testMode) {
+    return params.line_user_id || userStore.userId || window.endpoint?.lineUserId || window.endpoint?.testUserId || ''
+  }
+  return params.line_user_id || userStore.userId || ''
+}
 
 export const useActivityStore = defineStore('activity', {
   state: () => ({

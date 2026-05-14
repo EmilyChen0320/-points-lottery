@@ -11,7 +11,7 @@ import { useUserStore } from '../stores/userStore'
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
-const { userId } = storeToRefs(userStore)
+const { userId, testMode } = storeToRefs(userStore)
 
 const loading = ref(true)
 const redeeming = ref(false)
@@ -56,7 +56,12 @@ const dateText = computed(() => {
   const end = coupon.value?.end_date ? formatDate(coupon.value.end_date) : '--/--'
   return `${start} ~ ${end}`
 })
-const lineUserId = computed(() => userId.value || window.endpoint?.lineUserId || window.endpoint?.testUserId || '')
+const lineUserId = computed(() => {
+  if (testMode.value) {
+    return userId.value || window.endpoint?.lineUserId || window.endpoint?.testUserId || ''
+  }
+  return userId.value || ''
+})
 
 const COUPON_CODE_PLACEHOLDER = '請至會員中心查看'
 

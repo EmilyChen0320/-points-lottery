@@ -10,13 +10,16 @@ import { useUserStore } from '../stores/userStore'
 
 const route = useRoute()
 const userStore = useUserStore()
-const { userId } = storeToRefs(userStore)
+const { userId, testMode } = storeToRefs(userStore)
 
 const activityId = computed(() => String(route.params.activityId ?? ''))
 const lotteryId = computed(() => String(route.params.lotteryId ?? ''))
-const lineUserId = computed(
-  () => userId.value || window.endpoint?.lineUserId || window.endpoint?.testUserId || '',
-)
+const lineUserId = computed(() => {
+  if (testMode.value) {
+    return userId.value || window.endpoint?.lineUserId || window.endpoint?.testUserId || ''
+  }
+  return userId.value || ''
+})
 
 const loading = ref(true)
 const errorMessage = ref('')
