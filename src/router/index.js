@@ -11,6 +11,7 @@ import MyDrawTicketsView from '../views/MyDrawTicketsView.vue'
 const router = createRouter({
   history: createWebHistory('/liff/point_activity/'),
   routes: [
+    { path: '/index', redirect: '/' },
     { path: '/loading', name: 'loading', component: LoadingView },
     { path: '/', name: 'home', component: HomeView },
     { path: '/redeem/:activityId', name: 'redeem-home', component: RedeemHomeView },
