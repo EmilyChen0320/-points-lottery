@@ -24,10 +24,16 @@ const goToRedeemPage = () => {
   >
     <div class="flex gap-3">
       <img
+        v-if="activity.image"
         :src="activity.image"
         :alt="activity.title"
         class="h-[88px] w-[88px] self-center rounded-md object-cover object-center"
       />
+      <div
+        v-else
+        class="h-[88px] w-[88px] shrink-0 self-center rounded-md bg-[#f2edf4]"
+        aria-hidden="true"
+      ></div>
       <div class="flex min-w-0 flex-1 flex-col gap-1">
         <StatusBadge :status="activity.status" />
         <div class="flex items-center justify-between gap-2">

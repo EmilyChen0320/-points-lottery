@@ -2,12 +2,6 @@ import { defineStore } from 'pinia'
 import pointActivityService from '../services/pointActivityService'
 import { useUserStore } from './userStore'
 
-const fallbackImages = [
-  'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=300&q=80',
-  'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=300&q=80',
-  'https://images.unsplash.com/photo-1517849845537-4d257902454a?w=300&q=80',
-]
-
 const formatDatePart = (value) => {
   if (!value) return '--/--'
 
@@ -35,6 +29,12 @@ const parsePoints = (value) => {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
+const pickImageUrl = (item = {}) => {
+  const candidates = [item.cover_image, item.image, item.image_url, item.cover_url, item.thumbnail]
+  const hit = candidates.find((value) => typeof value === 'string' && value.trim())
+  return hit ? hit.trim() : ''
+}
+
 const mapActivityItem = (item, index, baseIndex = 0) => ({
   id: item?.id ?? `activity-${baseIndex + index}`,
   title: item?.name ?? '未命名活動',
@@ -42,7 +42,7 @@ const mapActivityItem = (item, index, baseIndex = 0) => ({
   redeemedCount: parsePoints(item?.user_redeem_count),
   period: formatPeriod(item?.start_at, item?.end_at),
   points: parsePoints(item?.user_points),
-  image: fallbackImages[(baseIndex + index) % fallbackImages.length],
+  image: pickImageUrl(item),
 })
 
 const resolveLineUserId = (params = {}) => {
