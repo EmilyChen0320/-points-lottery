@@ -4,7 +4,7 @@ import vue from '@vitejs/plugin-vue'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [vue()],
-  base: '/liff/point_activity/',
+  base: '/liff/point_activity/index',
   experimental: {
     renderBuiltUrl(filename, { type }) {
       if (type === 'asset' && filename.startsWith('images/point_activities/')) {
