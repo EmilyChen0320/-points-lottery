@@ -125,12 +125,7 @@ export const useActivityStore = defineStore('activity', {
           ...requestParams,
         })
 
-        const rows = Array.isArray(response?.result?.data) ? response.result.data : []
         this.setActivitiesFromApi(response?.result ?? {}, { append })
-        await this.refreshActivityPoints(
-          lineUserId,
-          rows.map((item) => item?.id).filter(Boolean),
-        )
       } catch (error) {
         if (!params.append) {
           this.activities = []
