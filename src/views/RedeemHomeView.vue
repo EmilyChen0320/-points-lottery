@@ -31,11 +31,6 @@ const parsePoints = (value) => {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-const drawFallbackImages = [
-  'https://images.unsplash.com/photo-1583511655826-05700d52f4d9?w=200&q=80',
-  'https://images.unsplash.com/photo-1537151625747-768eb6cf92b2?w=200&q=80',
-]
-
 const formatDate = (value) => {
   if (!value) return '--'
   const date = new Date(value)
@@ -81,6 +76,20 @@ const pickCouponImageUrl = (item = {}) => {
   return hit ? hit.trim() : ''
 }
 
+const pickRewardImageUrl = (item = {}) => {
+  const candidates = [
+    item.image,
+    item.image_url,
+    item.cover_image,
+    item.cover_url,
+    item.thumbnail,
+    item.style?.background_image,
+    item.style?.backgroundImage,
+  ]
+  const hit = candidates.find((value) => typeof value === 'string' && value.trim())
+  return hit ? hit.trim() : ''
+}
+
 const mapCoupons = (coupons = []) =>
   coupons.map((item) => ({
     id: item.id,
@@ -108,7 +117,7 @@ const formatRemainingEntries = (item, lineUser = {}) =>
     : `今日剩餘 ${Number(lineUser.remaining_entries_today ?? 0)} 次`
 
 const mapLotteries = (lotteries = []) =>
-  lotteries.map((item, index) => {
+  lotteries.map((item) => {
     const drawMode = item.draw_mode === 'scheduled' ? 'scheduled' : 'immediate'
     const lineUser = item.line_user ?? {}
 
@@ -124,7 +133,7 @@ const mapLotteries = (lotteries = []) =>
       cost: `${Number(item.points_required ?? 0)} 點 / ${drawMode === 'scheduled' ? '張' : '次'}`,
       extra: drawMode === 'scheduled' && item.draw_at ? `開獎：${formatDateTime(item.draw_at)}` : '',
       buttonText: drawMode === 'scheduled' ? '兌換抽獎券' : '去抽獎',
-      image: drawFallbackImages[index % drawFallbackImages.length],
+      image: pickRewardImageUrl(item),
     }
   })
 
@@ -305,7 +314,17 @@ watch(
             style="border-width: 0.6px"
           >
             <div class="flex items-center gap-3">
-              <img :src="item.image" :alt="item.title" class="h-[65px] w-[65px] rounded-[8px] object-cover" />
+              <img
+                v-if="item.image"
+                :src="item.image"
+                :alt="item.title"
+                class="h-[65px] w-[65px] rounded-[8px] object-cover"
+              />
+              <div
+                v-else
+                class="h-[65px] w-[65px] shrink-0 rounded-[8px] bg-[#fff3df]"
+                aria-hidden="true"
+              ></div>
               <div class="min-w-0 flex-1">
                 <p class="truncate text-[14px] font-medium leading-5 text-[#495057]">{{ item.title }}</p>
                 <p class="mt-2 text-xs font-normal leading-4 text-[#757575]">{{ item.desc }}</p>
