@@ -31,11 +31,6 @@ const parsePoints = (value) => {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-const couponFallbackImages = [
-  'https://images.unsplash.com/photo-1561037404-61cd46aa615b?w=200&q=80',
-  'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=200&q=80',
-]
-
 const drawFallbackImages = [
   'https://images.unsplash.com/photo-1583511655826-05700d52f4d9?w=200&q=80',
   'https://images.unsplash.com/photo-1537151625747-768eb6cf92b2?w=200&q=80',
@@ -80,15 +75,21 @@ const heroStyle = computed(() => {
   }
 })
 
+const pickCouponImageUrl = (item = {}) => {
+  const candidates = [item.style?.background_image, item.style?.backgroundImage]
+  const hit = candidates.find((value) => typeof value === 'string' && value.trim())
+  return hit ? hit.trim() : ''
+}
+
 const mapCoupons = (coupons = []) =>
-  coupons.map((item, index) => ({
+  coupons.map((item) => ({
     id: item.id,
     title: item.name || '未命名優惠券',
     remain: formatCouponRemaining(item),
     desc: item.description || item.instructions || '尚無優惠券說明',
     cost: `${Number(item.points_required ?? 0)} 點`,
     buttonText: '去兌換',
-    image: couponFallbackImages[index % couponFallbackImages.length],
+    image: pickCouponImageUrl(item),
   }))
 
 const isUnlimitedCouponTotal = (item = {}) => {
@@ -258,7 +259,17 @@ watch(
             style="border-width: 0.6px"
           >
             <div class="flex items-center gap-3">
-              <img :src="item.image" :alt="item.title" class="h-[65px] w-[65px] rounded-[8px] object-cover" />
+              <img
+                v-if="item.image"
+                :src="item.image"
+                :alt="item.title"
+                class="h-[65px] w-[65px] rounded-[8px] object-cover"
+              />
+              <div
+                v-else
+                class="h-[65px] w-[65px] shrink-0 rounded-[8px] bg-[#f2edf4]"
+                aria-hidden="true"
+              ></div>
               <div class="min-w-0 flex-1">
                 <p class="min-w-0 truncate text-[14px] font-medium leading-5 text-[#495057]">
                   {{ item.title }}
