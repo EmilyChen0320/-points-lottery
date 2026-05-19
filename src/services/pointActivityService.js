@@ -48,6 +48,9 @@ const getPointActivityDetail = (activityId, params = {}) =>
 const getLineUserPoints = (activityId, params = {}) =>
   request(`/liff/point_activities/${activityId}/line_user_points`, { params })
 
+const getCheckInPoints = (activityId, params = {}) =>
+  request(`/liff/point_activities/${activityId}/check-in-points`, { params })
+
 const getCouponInfo = (activityId, couponId) =>
   request(`/liff/point_activities/${activityId}/coupons/${couponId}`)
 
@@ -79,6 +82,12 @@ const getLotteryTickets = (activityId, lotteryId, params = {}) =>
     { params },
   )
 
+const submitCheckIn = (activityId, payload = {}) =>
+  request(`/liff/point_activities/${activityId}/check-in`, {
+    method: 'POST',
+    body: payload,
+  })
+
 const getUserCouponCode = (lineUserId, userCouponCodeId) =>
   request(`/line_users/${lineUserId}/user_coupon_codes/${userCouponCodeId}`)
 
@@ -86,10 +95,12 @@ export default {
   getPointActivities,
   getPointActivityDetail,
   getLineUserPoints,
+  getCheckInPoints,
   getCouponInfo,
   getLotteryInfo,
   redeemCoupon,
   redeemLottery,
   getLotteryTickets,
+  submitCheckIn,
   getUserCouponCode,
 }
