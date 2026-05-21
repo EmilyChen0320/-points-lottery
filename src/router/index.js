@@ -7,7 +7,6 @@ import RedeemCouponView from '../views/RedeemCouponView.vue'
 import RedeemDrawTicketView from '../views/RedeemDrawTicketView.vue'
 import LuckyWheelView from '../views/LuckyWheelView.vue'
 import MyDrawTicketsView from '../views/MyDrawTicketsView.vue'
-import CheckInPage from '../views/CheckInPage.vue'
 
 const router = createRouter({
   history: createWebHistory('/liff/point_activity/'),
@@ -19,7 +18,6 @@ const router = createRouter({
     { path: '/redeem/:activityId/draw-ticket/:lotteryId', name: 'redeem-draw-ticket', component: RedeemDrawTicketView },
     { path: '/redeem/:activityId/draw-ticket/:lotteryId/tickets', name: 'my-draw-tickets', component: MyDrawTicketsView },
     { path: '/redeem/:activityId/lucky-wheel/:lotteryId', name: 'redeem-lucky-wheel', component: LuckyWheelView },
-    { path: '/check-in/:activityId', name: 'check-in', component: CheckInPage },
     { path: '/earn-success', name: 'earn-success', component: EarnSuccessView },
   ],
 })
