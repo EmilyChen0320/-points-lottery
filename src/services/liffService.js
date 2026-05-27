@@ -64,6 +64,11 @@ const getFriendship = async () => {
   return window.liff.getFriendship()
 }
 
+const getAccessToken = () => {
+  if (!isLiffRuntimeAvailable() || !window.liff.isLoggedIn()) return ''
+  return window.liff.getAccessToken() ?? ''
+}
+
 const isInClient = () => (isLiffRuntimeAvailable() ? window.liff.isInClient() : false)
 
 const sendImageMessage = async (imageUrl, previewImageUrl = imageUrl) => {
@@ -90,6 +95,7 @@ export default {
   getUserId,
   getProfile,
   getFriendship,
+  getAccessToken,
   sendImageMessage,
   getEnvironment,
 }

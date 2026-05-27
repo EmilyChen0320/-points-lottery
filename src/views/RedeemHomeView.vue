@@ -137,6 +137,31 @@ const mapLotteries = (lotteries = []) =>
     }
   })
 
+const checkInSummary = computed(() => {
+  const source = activity.value?.checkin_summary ?? activity.value?.check_in_summary ?? activity.value?.checkin ?? {}
+  const earnedPoints = parsePoints(
+    source.earned_points ??
+      source.total_points ??
+      source.points ??
+      activity.value?.checkin_points ??
+      activity.value?.check_in_points,
+  )
+  const checkedCount = parsePoints(
+    source.successful_checkin_count ??
+      source.checked_in_count ??
+      source.checkin_count ??
+      activity.value?.successful_checkin_count,
+  )
+
+  return {
+    title: source.title || `${activity.value?.name || '集點活動'} 打卡集點活動`,
+    description: source.description || '打卡活動',
+    earnedPoints,
+    checkedCount,
+    image: pickRewardImageUrl(source) || activity.value?.cover_image || '',
+  }
+})
+
 const fetchActivityDetail = async () => {
   if (!activityId.value) {
     errorMessage.value = '缺少活動 ID'
@@ -187,6 +212,15 @@ const goToDrawTicketPage = (item) => {
     params: {
       activityId: activityId.value,
       lotteryId: item.id,
+    },
+  })
+}
+
+const goToCheckInPage = () => {
+  router.push({
+    name: 'check-in',
+    params: {
+      activityId: activityId.value,
     },
   })
 }
@@ -253,6 +287,46 @@ watch(
             </button>
           </div>
         </div>
+      </section>
+
+      <section class="bg-white px-4 pb-4 pt-3 shadow-[0_0_1px_0_rgba(0,0,0,0.05)]">
+        <h2 class="mb-[11px] text-sm font-semibold text-[#495057]">打卡集點</h2>
+        <article
+          class="rounded-lg bg-[#fbf7fb] px-3 py-3 shadow-[0_0_1px_0_rgba(0,0,0,0.08)]"
+        >
+          <div class="flex items-center gap-3">
+            <img
+              v-if="checkInSummary.image"
+              :src="checkInSummary.image"
+              :alt="checkInSummary.title"
+              class="h-[65px] w-[65px] rounded-[8px] object-cover"
+            />
+            <div
+              v-else
+              class="h-[65px] w-[65px] shrink-0 rounded-[8px] bg-[#f2edf4]"
+              aria-hidden="true"
+            ></div>
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-[14px] font-medium leading-5 text-[#495057]">
+                {{ checkInSummary.title }}
+              </p>
+              <p class="mt-1 text-xs leading-4 text-[#757575]">{{ checkInSummary.description }}</p>
+              <p class="mt-2 text-[14px] font-medium leading-5 text-[#A660A3]">
+                已獲得：{{ checkInSummary.earnedPoints }} 點
+              </p>
+            </div>
+            <div class="flex self-stretch flex-col items-end justify-between text-right">
+              <p class="text-[12px] leading-4 text-[#757575]">已打卡 {{ checkInSummary.checkedCount }} 點</p>
+              <button
+                type="button"
+                class="h-7 rounded-[8px] bg-[#A660A3] px-3 py-1 text-xs font-semibold leading-5 text-white"
+                @click="goToCheckInPage"
+              >
+                去打卡
+              </button>
+            </div>
+          </div>
+        </article>
       </section>
 
       <section class="bg-white px-4 pb-4 pt-3 shadow-[0_0_1px_0_rgba(0,0,0,0.05)]">

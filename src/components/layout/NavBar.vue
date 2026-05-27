@@ -23,11 +23,20 @@ const onBack = () => {
     routeName === 'redeem-coupon' ||
     routeName === 'redeem-draw-ticket' ||
     routeName === 'redeem-lucky-wheel' ||
-    routeName === 'my-draw-tickets'
+    routeName === 'my-draw-tickets' ||
+    routeName === 'check-in'
   ) {
     const activityId = route.params.activityId
     if (activityId) {
       router.push({ name: 'redeem-home', params: { activityId } })
+      return
+    }
+  }
+
+  if (routeName === 'check-in-result') {
+    const activityId = route.params.activityId
+    if (activityId) {
+      router.push({ name: 'check-in', params: { activityId } })
       return
     }
   }

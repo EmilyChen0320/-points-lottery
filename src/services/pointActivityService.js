@@ -1,4 +1,23 @@
+import liffService from './liffService'
+
 const API_BASE_URL = window.endpoint?.lineCrmApiBaseUrl ?? 'https://feature-line-crm.aitago.tw/api'
+
+const getAuthHeaders = (path) => {
+  if (!path.startsWith('/liff/point_activities')) return {}
+
+  const env = liffService.getEnvironment()
+  const shouldUseTestMode = !env.enableLiff || env.isLocalhost
+  const accessToken = liffService.getAccessToken()
+
+  if (!accessToken) {
+    if (shouldUseTestMode) return {}
+    throw new Error('LIFF 尚未登入，請重新開啟頁面')
+  }
+
+  return {
+    Authorization: `Bearer ${accessToken}`,
+  }
+}
 
 const buildQueryString = (params = {}) => {
   const searchParams = new URLSearchParams()
@@ -17,6 +36,7 @@ const request = async (path, { method = 'GET', params = {}, body } = {}) => {
     method,
     headers: {
       Accept: 'application/json',
+      ...getAuthHeaders(path),
       ...(body ? { 'Content-Type': 'application/json' } : {}),
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
@@ -47,6 +67,9 @@ const getPointActivityDetail = (activityId, params = {}) =>
 
 const getLineUserPoints = (activityId, params = {}) =>
   request(`/liff/point_activities/${activityId}/line_user_points`, { params })
+
+const getCheckinSpots = (activityId, params = {}) =>
+  request(`/liff/point_activities/${activityId}/checkin-spots`, { params })
 
 const getCouponInfo = (activityId, couponId) =>
   request(`/liff/point_activities/${activityId}/coupons/${couponId}`)
@@ -79,6 +102,12 @@ const getLotteryTickets = (activityId, lotteryId, params = {}) =>
     { params },
   )
 
+const submitCheckIn = (activityId, payload = {}) =>
+  request(`/liff/point_activities/${activityId}/check-in`, {
+    method: 'POST',
+    body: payload,
+  })
+
 const getUserCouponCode = (lineUserId, userCouponCodeId) =>
   request(`/line_users/${lineUserId}/user_coupon_codes/${userCouponCodeId}`)
 
@@ -86,10 +115,12 @@ export default {
   getPointActivities,
   getPointActivityDetail,
   getLineUserPoints,
+  getCheckinSpots,
   getCouponInfo,
   getLotteryInfo,
   redeemCoupon,
   redeemLottery,
   getLotteryTickets,
+  submitCheckIn,
   getUserCouponCode,
 }
