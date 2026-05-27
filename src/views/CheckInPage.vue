@@ -25,6 +25,7 @@ const checkingInId = ref(null)
 const errorMessage = ref('')
 const locationMessage = ref('')
 const activity = ref(null)
+const userPoints = ref(0)
 const userLocation = ref(null)
 const checkinSpots = ref([])
 
@@ -62,12 +63,6 @@ const heroStyle = computed(() => {
 })
 
 const activityTitle = computed(() => activity.value?.name || '打卡集點活動')
-const earnedPoints = computed(() =>
-  checkinSpots.value.reduce(
-    (total, item) => total + toNumber(item.earned_points ?? item.points ?? item.successful_checkin_count, 0),
-    0,
-  ),
-)
 
 const normalizeSpot = (item = {}) => {
   const distance = item.distance_meters ?? item.distance
@@ -141,6 +136,13 @@ const loadActivityDetail = async () => {
   activity.value = response?.result?.data?.activity ?? null
 }
 
+const loadUserPoints = async () => {
+  const response = await pointActivityService.getLineUserPoints(activityId.value, {
+    line_user_id: lineUserId.value,
+  })
+  userPoints.value = toNumber(response?.result?.data?.points, 0)
+}
+
 const loadCheckinSpots = async () => {
   if (!userLocation.value) return
 
@@ -165,6 +167,7 @@ const refreshPage = async () => {
 
   try {
     await loadActivityDetail()
+    await loadUserPoints()
     await loadUserLocation()
     await loadCheckinSpots()
   } catch (error) {
@@ -290,7 +293,7 @@ watch(
             <p class="mt-1 text-xs leading-4 text-[#757575]">已獲得點數</p>
           </div>
           <p class="text-[#A660A3]">
-            <span class="text-[26px] font-bold leading-7">{{ earnedPoints }}</span>
+            <span class="text-[26px] font-bold leading-7">{{ userPoints }}</span>
             <span class="ml-1 text-xs font-semibold">點</span>
           </p>
         </div>

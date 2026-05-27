@@ -139,13 +139,6 @@ const mapLotteries = (lotteries = []) =>
 
 const checkInSummary = computed(() => {
   const source = activity.value?.checkin_summary ?? activity.value?.check_in_summary ?? activity.value?.checkin ?? {}
-  const earnedPoints = parsePoints(
-    source.earned_points ??
-      source.total_points ??
-      source.points ??
-      activity.value?.checkin_points ??
-      activity.value?.check_in_points,
-  )
   const checkedCount = parsePoints(
     source.successful_checkin_count ??
       source.checked_in_count ??
@@ -156,7 +149,6 @@ const checkInSummary = computed(() => {
   return {
     title: source.title || `${activity.value?.name || '集點活動'} 打卡集點活動`,
     description: source.description || '打卡活動',
-    earnedPoints,
     checkedCount,
     image: pickRewardImageUrl(source) || activity.value?.cover_image || '',
   }
@@ -312,7 +304,7 @@ watch(
               </p>
               <p class="mt-1 text-xs leading-4 text-[#757575]">{{ checkInSummary.description }}</p>
               <p class="mt-2 text-[14px] font-medium leading-5 text-[#A660A3]">
-                已獲得：{{ checkInSummary.earnedPoints }} 點
+                已獲得：{{ userPoints }} 點
               </p>
             </div>
             <div class="flex self-stretch flex-col items-end justify-between text-right">
