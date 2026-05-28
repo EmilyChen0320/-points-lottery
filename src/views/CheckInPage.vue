@@ -68,6 +68,9 @@ const normalizeSpot = (item = {}) => {
   const distance = item.distance_meters ?? item.distance
   const successfulCount = toNumber(item.successful_checkin_count, 0)
   const checkedIn = Boolean(item.checked_in ?? item.is_checked_in ?? successfulCount > 0)
+  const isWithinRadius = Boolean(item.is_within_radius)
+  const canCheckin =
+    item.can_checkin == null ? isWithinRadius && !checkedIn : Boolean(item.can_checkin)
 
   return {
     ...item,
@@ -78,8 +81,8 @@ const normalizeSpot = (item = {}) => {
     lng: toNumber(item.lng ?? item.longitude, null),
     radius: toNumber(item.radius_meters ?? item.radius, 100),
     distance: distance == null ? null : Math.round(toNumber(distance, 0)),
-    canCheckin: item.can_checkin ?? item.is_within_radius ?? false,
-    isWithinRadius: item.is_within_radius ?? false,
+    canCheckin,
+    isWithinRadius,
     cannotReason: item.cannot_checkin_reason || '',
     checkedIn,
     successfulCount,
@@ -184,6 +187,24 @@ const formatDistance = (distance) => {
   return `${(distance / 1000).toFixed(1)} 公里`
 }
 
+const formatDateTime = (value) => {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return String(value)
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  const hours = `${date.getHours()}`.padStart(2, '0')
+  const minutes = `${date.getMinutes()}`.padStart(2, '0')
+  return `${month}/${day} ${hours}:${minutes}`
+}
+
+const getSpotStatusText = (spot) => {
+  if (spot.canCheckin) return ''
+  if (spot.cannotReason) return spot.cannotReason
+  if (!spot.isWithinRadius) return `需到 ${spot.radius} 公尺內`
+  return '暫時無法打卡'
+}
+
 const openMap = (spot) => {
   if (spot.lat == null || spot.lng == null) return
   window.open(`https://www.google.com/maps/search/?api=1&query=${spot.lat},${spot.lng}`, '_blank')
@@ -202,9 +223,10 @@ const submitCheckIn = async (spot) => {
 
   if (!spot.canCheckin) {
     goResult({
-      status: 'out-of-range',
+      status: spot.isWithinRadius ? 'failed' : 'out-of-range',
       distance: spot.distance ?? '',
       message: spot.cannotReason || '請靠近打卡點再試一次',
+      next_available_time: spot.nextAvailableTime || '',
     })
     return
   }
@@ -320,6 +342,12 @@ watch(
             <h3 class="text-[14px] font-semibold leading-5 text-[#495057]">{{ spot.name }}</h3>
             <p class="mt-1 text-xs leading-4 text-[#757575]">{{ spot.address || '未提供地址' }}</p>
             <p class="mt-1 text-xs leading-4 text-[#A660A3]">● 距離 {{ formatDistance(spot.distance) }}</p>
+            <p v-if="!spot.canCheckin" class="mt-1 text-xs leading-4 text-[#909090]">
+              {{ getSpotStatusText(spot) }}
+            </p>
+            <p v-if="!spot.canCheckin && spot.nextAvailableTime" class="mt-1 text-xs leading-4 text-[#909090]">
+              下次可打卡：{{ formatDateTime(spot.nextAvailableTime) }}
+            </p>
 
             <button
               v-if="spot.canCheckin"
@@ -331,12 +359,20 @@ watch(
               {{ checkingInId === spot.id ? '打卡中...' : '立即打卡' }}
             </button>
             <button
-              v-else
+              v-else-if="!spot.isWithinRadius"
               type="button"
               class="mt-3 h-10 w-full rounded-[8px] border border-[#cfcfcf] bg-white text-sm font-medium text-[#909090]"
               @click="openMap(spot)"
             >
               開啟地圖 ↗
+            </button>
+            <button
+              v-else
+              type="button"
+              class="mt-3 h-10 w-full rounded-[8px] border border-[#dcdcdc] bg-[#ededed] text-sm font-medium text-[#909090]"
+              disabled
+            >
+              暫不可打卡
             </button>
           </article>
         </div>
@@ -354,7 +390,10 @@ watch(
             class="rounded-lg bg-[#f5f5f5] px-4 py-3"
           >
             <h3 class="text-[14px] font-medium leading-5 text-[#909090]">{{ spot.name }} ✓</h3>
-            <p class="mt-1 text-xs leading-4 text-[#b0b0b0]">已打卡，獲得 {{ spot.successfulCount || 10 }} 點</p>
+            <p class="mt-1 text-xs leading-4 text-[#b0b0b0]">已打卡 {{ spot.successfulCount }} 次</p>
+            <p v-if="spot.nextAvailableTime" class="mt-1 text-xs leading-4 text-[#b0b0b0]">
+              下次可打卡：{{ formatDateTime(spot.nextAvailableTime) }}
+            </p>
           </article>
         </div>
       </section>

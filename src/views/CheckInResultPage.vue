@@ -8,12 +8,30 @@ const router = useRouter()
 
 const status = computed(() => String(route.query.status ?? 'failed'))
 const isSuccess = computed(() => status.value === 'success')
+const isOutOfRange = computed(() => status.value === 'out-of-range')
 const distanceText = computed(() => {
   const distance = Number(route.query.distance)
   if (!Number.isFinite(distance)) return '請靠近打卡點再試一次'
   return `距離打卡點 ${Math.round(distance)} 公尺`
 })
 const resultMessage = computed(() => String(route.query.message || (isSuccess.value ? '感謝您的參與' : '請靠近打卡點再試一次')))
+const nextAvailableTime = computed(() => String(route.query.next_available_time || ''))
+const resultTitle = computed(() => {
+  if (isSuccess.value) return '您已集過該點'
+  if (isOutOfRange.value) return '不在打卡範圍內'
+  return '打卡失敗'
+})
+
+const formatDateTime = (value) => {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return String(value)
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  const hours = `${date.getHours()}`.padStart(2, '0')
+  const minutes = `${date.getMinutes()}`.padStart(2, '0')
+  return `${month}/${day} ${hours}:${minutes}`
+}
 
 const goBackToList = () => {
   router.push({
@@ -38,7 +56,7 @@ const goBackToList = () => {
           {{ isSuccess ? '✓' : '!' }}
         </div>
         <h1 class="mt-4 text-[20px] font-bold leading-7 drop-shadow-sm">
-          {{ isSuccess ? '您已集過該點' : '不在打卡範圍內' }}
+          {{ resultTitle }}
         </h1>
 
         <div class="mt-4 min-w-[160px] rounded-full border border-white bg-[#A660A3]/45 px-6 py-2 text-center text-sm font-medium leading-5">
@@ -46,8 +64,9 @@ const goBackToList = () => {
             {{ resultMessage }}
           </template>
           <template v-else>
-            <p>{{ distanceText }}</p>
+            <p v-if="isOutOfRange">{{ distanceText }}</p>
             <p class="text-xs">{{ resultMessage }}</p>
+            <p v-if="nextAvailableTime" class="text-xs">下次可打卡：{{ formatDateTime(nextAvailableTime) }}</p>
           </template>
         </div>
 
