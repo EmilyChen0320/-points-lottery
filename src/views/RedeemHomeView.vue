@@ -308,7 +308,7 @@ watch(
               </p>
             </div>
             <div class="flex self-stretch flex-col items-end justify-between text-right">
-              <p class="text-[12px] leading-4 text-[#757575]">已打卡 {{ checkInSummary.checkedCount }} 點</p>
+              <p class="text-[12px] leading-4 text-[#757575]">已打卡 {{ checkInSummary.checkedCount }} 次</p>
               <button
                 type="button"
                 class="h-7 rounded-[8px] bg-[#A660A3] px-3 py-1 text-xs font-semibold leading-5 text-white"
