@@ -67,7 +67,7 @@ const activityTitle = computed(() => activity.value?.name || '打卡集點活動
 const normalizeSpot = (item = {}) => {
   const distance = item.distance_meters ?? item.distance
   const successfulCount = toNumber(item.successful_checkin_count, 0)
-  const checkedIn = Boolean(item.checked_in ?? item.is_checked_in ?? successfulCount > 0)
+  const checkedIn = Boolean(item.checked_in ?? item.is_checked_in ?? false)
   const isWithinRadius = Boolean(item.is_within_radius)
   const canCheckin =
     item.can_checkin == null ? isWithinRadius && !checkedIn : Boolean(item.can_checkin)
@@ -85,6 +85,7 @@ const normalizeSpot = (item = {}) => {
     isWithinRadius,
     cannotReason: item.cannot_checkin_reason || '',
     checkedIn,
+    hasSuccessfulCheckin: successfulCount > 0,
     successfulCount,
     nextAvailableTime: item.next_available_time || '',
   }
@@ -98,8 +99,8 @@ const rowsFromResponse = (response = {}) => {
   return []
 }
 
-const availableSpots = computed(() => checkinSpots.value.filter((item) => !item.checkedIn))
-const checkedInSpots = computed(() => checkinSpots.value.filter((item) => item.checkedIn))
+const availableSpots = computed(() => checkinSpots.value)
+const checkedInSpots = computed(() => checkinSpots.value.filter((item) => item.hasSuccessfulCheckin))
 
 const requestCurrentPosition = () =>
   new Promise((resolve, reject) => {
@@ -342,6 +343,9 @@ watch(
             <h3 class="text-[14px] font-semibold leading-5 text-[#495057]">{{ spot.name }}</h3>
             <p class="mt-1 text-xs leading-4 text-[#757575]">{{ spot.address || '未提供地址' }}</p>
             <p class="mt-1 text-xs leading-4 text-[#A660A3]">● 距離 {{ formatDistance(spot.distance) }}</p>
+            <p v-if="spot.hasSuccessfulCheckin" class="mt-1 text-xs leading-4 text-[#757575]">
+              已打卡 {{ spot.successfulCount }} 次
+            </p>
             <p v-if="!spot.canCheckin" class="mt-1 text-xs leading-4 text-[#909090]">
               {{ getSpotStatusText(spot) }}
             </p>
@@ -379,9 +383,9 @@ watch(
       </section>
 
       <section class="bg-white px-4 pb-6 pt-3">
-        <h2 class="mb-[11px] text-sm font-semibold text-[#495057]">已打卡地點</h2>
+        <h2 class="mb-[11px] text-sm font-semibold text-[#495057]">打卡紀錄</h2>
         <div v-if="checkedInSpots.length === 0" class="rounded-lg bg-[#f8f6fb] px-4 py-8 text-center text-sm text-[#757575]">
-          尚未完成任何打卡
+          尚未有打卡紀錄
         </div>
         <div v-else class="space-y-3">
           <article
