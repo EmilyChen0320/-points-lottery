@@ -25,6 +25,7 @@ const activity = ref(null)
 const userPoints = ref(0)
 const couponRewards = ref([])
 const drawRewards = ref([])
+const hasCheckInSpots = ref(false)
 
 const parsePoints = (value) => {
   const parsed = Number(value)
@@ -154,6 +155,53 @@ const checkInSummary = computed(() => {
   }
 })
 
+const rowsFromResponse = (response = {}) => {
+  const result = response.result
+  const data = result?.data ?? result
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data?.data)) return data.data
+  return []
+}
+
+const getTotalFromResponse = (response = {}) => {
+  const result = response.result
+  const total = Number(result?.total ?? result?.data?.total)
+  if (Number.isFinite(total)) return total
+  return rowsFromResponse(response).length
+}
+
+const requestCurrentPosition = () =>
+  new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('請開啟定位權限'))
+      return
+    }
+
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      timeout: 12000,
+      maximumAge: 30000,
+    })
+  })
+
+const loadCheckInSpotsAvailability = async () => {
+  hasCheckInSpots.value = false
+
+  try {
+    const position = await requestCurrentPosition()
+    const response = await pointActivityService.getCheckinSpots(activityId.value, {
+      line_user_id: lineUserId.value,
+      lat: position.coords.latitude,
+      lng: position.coords.longitude,
+      per_page: 1,
+    })
+    hasCheckInSpots.value = getTotalFromResponse(response) > 0
+  } catch (error) {
+    console.error('取得打卡點列表失敗:', error)
+    hasCheckInSpots.value = false
+  }
+}
+
 const fetchActivityDetail = async () => {
   if (!activityId.value) {
     errorMessage.value = '缺少活動 ID'
@@ -177,6 +225,7 @@ const fetchActivityDetail = async () => {
     userPoints.value = parsePoints(pointsResponse?.result?.data?.points ?? data.line_user?.points)
     couponRewards.value = mapCoupons(data.coupons ?? [])
     drawRewards.value = mapLotteries(data.lotteries ?? [])
+    await loadCheckInSpotsAvailability()
   } catch (error) {
     console.error('取得集點活動詳情失敗:', error)
     errorMessage.value = error?.message || '取得活動資料失敗，請稍後再試'
@@ -281,7 +330,7 @@ watch(
         </div>
       </section>
 
-      <section class="bg-white px-4 pb-4 pt-3 shadow-[0_0_1px_0_rgba(0,0,0,0.05)]">
+      <section v-if="hasCheckInSpots" class="bg-white px-4 pb-4 pt-3 shadow-[0_0_1px_0_rgba(0,0,0,0.05)]">
         <h2 class="mb-[11px] text-sm font-semibold text-[#495057]">打卡集點</h2>
         <article
           class="rounded-lg bg-[#fbf7fb] px-3 py-3 shadow-[0_0_1px_0_rgba(0,0,0,0.08)]"
