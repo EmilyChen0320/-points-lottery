@@ -17,7 +17,7 @@ const distanceText = computed(() => {
 const resultMessage = computed(() => String(route.query.message || (isSuccess.value ? '感謝您的參與' : '請靠近打卡點再試一次')))
 const nextAvailableTime = computed(() => String(route.query.next_available_time || ''))
 const resultTitle = computed(() => {
-  if (isSuccess.value) return '您已集過該點'
+  if (isSuccess.value) return '集點成功!'
   if (isOutOfRange.value) return '不在打卡範圍內'
   return '打卡失敗'
 })
