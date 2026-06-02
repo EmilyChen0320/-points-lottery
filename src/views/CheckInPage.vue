@@ -199,10 +199,37 @@ const formatDateTime = (value) => {
   return `${month}/${day} ${hours}:${minutes}`
 }
 
+const getOutsideRadiusText = (spot) =>
+  Number(spot?.radius) > 0 ? `需到 ${spot.radius} 公尺內` : '您目前不在打卡範圍內'
+
+const getCannotCheckinReasonText = (spot) => {
+  const reason = String(spot?.cannotReason || '')
+
+  const reasonMap = {
+    outside_radius: getOutsideRadiusText(spot),
+    cooldown: '尚在重複打卡限制時間內',
+    daily_limit: '已達今日打卡上限',
+    total_limit: '已達活動打卡上限',
+    per_user_per_source_limit: '已達此打卡點打卡上限',
+    invalid_earn_rules: '目前無法打卡，請稍後再試',
+  }
+
+  if (reasonMap[reason]) {
+    return reasonMap[reason]
+  }
+
+  if (reason.includes('_')) {
+    return '目前無法打卡，請稍後再試'
+  }
+
+  return reason
+}
+
 const getSpotStatusText = (spot) => {
   if (spot.canCheckin) return ''
-  if (spot.cannotReason) return spot.cannotReason
-  if (!spot.isWithinRadius) return `需到 ${spot.radius} 公尺內`
+  const cannotReasonText = getCannotCheckinReasonText(spot)
+  if (cannotReasonText) return cannotReasonText
+  if (!spot.isWithinRadius) return getOutsideRadiusText(spot)
   return '暫時無法打卡'
 }
 
@@ -226,7 +253,7 @@ const submitCheckIn = async (spot) => {
     goResult({
       status: spot.isWithinRadius ? 'failed' : 'out-of-range',
       distance: spot.distance ?? '',
-      message: spot.cannotReason || '請靠近打卡點再試一次',
+      message: getSpotStatusText(spot) || '請靠近打卡點再試一次',
       next_available_time: spot.nextAvailableTime || '',
     })
     return
