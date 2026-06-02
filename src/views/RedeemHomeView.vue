@@ -321,7 +321,7 @@ watch(
             </div>
             <button
               type="button"
-              class="inline-flex h-7 min-w-[76px] shrink-0 items-center justify-center whitespace-nowrap rounded-[8px] border border-[#A660A3] px-3 text-xs font-semibold leading-5 text-[#A660A3] opacity-50"
+              class="inline-flex h-8 w-[88px] shrink-0 items-center justify-center whitespace-nowrap rounded-[8px] border border-[#A660A3] px-3 text-xs font-semibold leading-none text-[#A660A3] opacity-50"
               disabled
             >
               兌換紀錄
