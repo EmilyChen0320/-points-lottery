@@ -111,6 +111,9 @@ const submitCheckIn = (activityId, payload = {}) =>
 const getUserCouponCode = (lineUserId, userCouponCodeId) =>
   request(`/line_users/${lineUserId}/user_coupon_codes/${userCouponCodeId}`)
 
+const getLineUserCouponByCode = (lineUserId, couponCode) =>
+  request(`/line_users/${lineUserId}/coupons/${encodeURIComponent(couponCode)}`)
+
 export default {
   getPointActivities,
   getPointActivityDetail,
@@ -123,4 +126,5 @@ export default {
   getLotteryTickets,
   submitCheckIn,
   getUserCouponCode,
+  getLineUserCouponByCode,
 }
