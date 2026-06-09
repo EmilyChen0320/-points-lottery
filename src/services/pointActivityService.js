@@ -62,6 +62,9 @@ const request = async (path, { method = 'GET', params = {}, body } = {}) => {
 const getPointActivities = (params = {}) =>
   request('/liff/point_activities', { params })
 
+const getLiffApps = () =>
+  request('/liff/apps')
+
 const getPointActivityDetail = (activityId, params = {}) =>
   request(`/liff/point_activities/${activityId}`, { params })
 
@@ -115,6 +118,7 @@ const getLineUserCouponByCode = (lineUserId, couponCode) =>
   request(`/line_users/${lineUserId}/coupons/${encodeURIComponent(couponCode)}`)
 
 export default {
+  getLiffApps,
   getPointActivities,
   getPointActivityDetail,
   getLineUserPoints,

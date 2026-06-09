@@ -46,10 +46,9 @@ const lastLotteryRecord = ref(null)
 const lottery = ref(null)
 const currentPoints = ref(0)
 const remainingCount = ref(0)
-const drawCouponDetail = ref(null)
-const drawCouponDetailLoading = ref(false)
-const drawCouponDetailError = ref('')
-const drawCouponCopyFeedback = ref('')
+const myCouponUrl = ref('')
+const myCouponUrlLoading = ref(false)
+const myCouponUrlError = ref('')
 
 const drawCost = computed(() => Number(lottery.value?.points_required ?? 0))
 const prizeItems = computed(() =>
@@ -67,11 +66,6 @@ const parseLotteryRecordFromRedeemResponse = (response) => {
   const record = data?.lottery_record ?? data?.record ?? null
   if (!record || typeof record !== 'object') return null
   return record
-}
-
-const normalizeCouponDetailPayload = (response) => {
-  const payload = response?.result?.data ?? response?.result ?? response?.data?.result ?? response?.data ?? null
-  return payload && typeof payload === 'object' && !payload.exception ? payload : null
 }
 
 const extractCouponCodeFromObject = (obj) => {
@@ -135,27 +129,12 @@ const isDrawCouponPrize = computed(() => {
     Boolean(extractCouponCodeFromObject(lastLotteryRecord.value?.user_coupon_code))
   )
 })
-const drawCouponCode = computed(() => extractCouponCodeFromObject(drawCouponDetail.value))
-const drawCoupon = computed(() => drawCouponDetail.value?.coupon ?? null)
-const drawCouponRedemptionMethod = computed(() => {
-  const methods = drawCoupon.value?.redemption_methods ?? drawCouponDetail.value?.redemption_methods ?? []
-  return Array.isArray(methods) ? String(methods[0] ?? '') : String(methods ?? '')
-})
 const drawCouponName = computed(() => {
-  const couponName = String(drawCoupon.value?.name ?? '').trim()
-  if (couponName) return couponName
   return String(drawPrize.value?.name ?? '').trim()
 })
 const drawCouponDescription = computed(() => {
-  const coupon = drawCoupon.value
-  return String(coupon?.description || coupon?.instructions || '').trim()
+  return String(drawPrize.value?.description || drawPrize.value?.instructions || '').trim()
 })
-const drawCouponRedirectUrl = computed(() =>
-  drawCouponRedemptionMethod.value === 'redirect' ? drawCouponCode.value : '',
-)
-const shouldShowCouponCopyButton = computed(
-  () => drawCouponRedemptionMethod.value === 'code_copy' && Boolean(drawCouponCode.value),
-)
 const drawPrizeTitle = computed(() => {
   const p = drawPrize.value
   if (!p || typeof p !== 'object') return ''
@@ -226,64 +205,37 @@ const resultChipText = computed(() => {
   return drawErrorMessage.value || '抽獎失敗，請稍後再試'
 })
 
-const resetDrawCouponDetail = () => {
-  drawCouponDetail.value = null
-  drawCouponDetailLoading.value = false
-  drawCouponDetailError.value = ''
-  drawCouponCopyFeedback.value = ''
+const resetMyCouponUrl = () => {
+  myCouponUrl.value = ''
+  myCouponUrlLoading.value = false
+  myCouponUrlError.value = ''
 }
 
-const fetchDrawCouponDetail = async () => {
-  resetDrawCouponDetail()
-  if (!isDrawCouponPrize.value || !lineUserId.value) return
+const fetchMyCouponUrl = async () => {
+  resetMyCouponUrl()
+  if (!isDrawCouponPrize.value) return
 
-  drawCouponDetailLoading.value = true
+  myCouponUrlLoading.value = true
   try {
-    const userCouponCodeId = resolveLotteryUserCouponCodeId(lastLotteryRecord.value)
-    const couponCode =
-      extractCouponCodeFromObject(lastLotteryRecord.value) ||
-      extractCouponCodeFromObject(drawPrize.value)
-    let response = null
-
-    if (userCouponCodeId) {
-      try {
-        response = await pointActivityService.getUserCouponCode(lineUserId.value, userCouponCodeId)
-      } catch (error) {
-        if (!couponCode) throw error
-        response = await pointActivityService.getLineUserCouponByCode(lineUserId.value, couponCode)
-      }
-    } else if (couponCode) {
-      response = await pointActivityService.getLineUserCouponByCode(lineUserId.value, couponCode)
+    const response = await pointActivityService.getLiffApps()
+    const apps = response?.result?.data ?? response?.data ?? {}
+    const url = String(apps?.my_coupon?.actions?.index?.url ?? '').trim()
+    if (!url) {
+      throw new Error('找不到票券夾連結')
     }
-
-    const detail = normalizeCouponDetailPayload(response)
-    if (detail) {
-      drawCouponDetail.value = detail
-    } else {
-      drawCouponDetailError.value = '優惠券資訊讀取失敗'
-    }
+    myCouponUrl.value = url
   } catch (error) {
-    drawCouponDetail.value = null
-    drawCouponDetailError.value = error?.message || '優惠券資訊讀取失敗'
-    console.error('取得抽獎優惠券詳情失敗:', error)
+    myCouponUrl.value = ''
+    myCouponUrlError.value = '票券夾連結讀取失敗，請稍後再試'
+    console.error('取得票券夾 LIFF 連結失敗:', error)
   } finally {
-    drawCouponDetailLoading.value = false
+    myCouponUrlLoading.value = false
   }
 }
 
-const copyDrawCouponCode = async () => {
-  if (!drawCouponCode.value) return
-  drawCouponCopyFeedback.value = ''
-  try {
-    await navigator.clipboard.writeText(drawCouponCode.value)
-    drawCouponCopyFeedback.value = '已複製到剪貼簿'
-  } catch (error) {
-    drawCouponCopyFeedback.value = '無法自動複製，請長按優惠碼手動選取'
-  } finally {
-    setTimeout(() => {
-      drawCouponCopyFeedback.value = ''
-    }, 2000)
-  }
+const goToMyCoupon = () => {
+  if (!myCouponUrl.value) return
+  window.location.href = myCouponUrl.value
 }
 
 const drawResultCardHeadline = computed(() => {
@@ -398,7 +350,7 @@ const handleDraw = async () => {
     })
 
     lastLotteryRecord.value = parseLotteryRecordFromRedeemResponse(redeemResponse)
-    await fetchDrawCouponDetail()
+    await fetchMyCouponUrl()
 
     const detailResponse = await pointActivityService.getLotteryInfo(activityId.value, lotteryId.value, {
       line_user_id: lineUserId.value,
@@ -440,7 +392,7 @@ watch(
 
 const drawAgain = () => {
   lastLotteryRecord.value = null
-  resetDrawCouponDetail()
+  resetMyCouponUrl()
   drawStatus.value = 'idle'
 }
 
@@ -577,56 +529,20 @@ onBeforeUnmount(() => {
             {{ drawPrizeSubtitle }}
           </p>
           <div v-if="isDrawCouponPrize" class="mt-5 rounded-md bg-[#faf9fc] px-4 py-4 text-center">
-            <p v-if="drawCouponDetailLoading" class="text-sm font-medium text-[#757575]">
-              優惠券資訊讀取中...
+            <p class="text-sm font-medium text-[#495057]">
+              已自動加入您的票券夾
             </p>
-            <p v-else-if="drawCouponDetailError" class="text-sm font-medium text-[#d35b5b]">
-              {{ drawCouponDetailError }}
+            <button
+              type="button"
+              class="mt-3 w-full rounded-md bg-[#A660A3] py-3 text-[15px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="myCouponUrlLoading || !myCouponUrl"
+              @click="goToMyCoupon"
+            >
+              {{ myCouponUrlLoading ? '票券夾連結讀取中...' : '前往票券夾' }}
+            </button>
+            <p v-if="myCouponUrlError" class="mt-2 text-xs leading-4 text-[#d35b5b]">
+              {{ myCouponUrlError }}
             </p>
-            <template v-else-if="drawCouponDetail">
-              <div
-                v-if="drawCouponRedemptionMethod === 'qr_code' && drawCouponDetail?.qr_code"
-                class="mx-auto flex min-h-36 w-36 items-center justify-center [&_svg]:h-36 [&_svg]:w-36"
-                v-html="drawCouponDetail.qr_code"
-              ></div>
-              <div
-                v-if="drawCouponCode && drawCouponRedemptionMethod !== 'redirect'"
-                class="rounded-md border border-[#E8E8E8] bg-white px-3 py-3"
-              >
-                <p class="text-xs font-medium text-[#757575]">
-                  {{ drawCouponRedemptionMethod === 'barcode' ? '優惠券條碼' : '優惠券碼' }}
-                </p>
-                <p class="mt-1 break-all text-[20px] font-bold leading-7 text-[#495057]">
-                  {{ drawCouponCode }}
-                </p>
-              </div>
-              <a
-                v-if="drawCouponRedirectUrl"
-                :href="drawCouponRedirectUrl"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="inline-flex w-full items-center justify-center rounded-md bg-[#A660A3] py-3 text-[15px] font-bold text-white"
-              >
-                開啟優惠券
-              </a>
-              <button
-                v-if="shouldShowCouponCopyButton"
-                type="button"
-                class="mt-3 w-full rounded-md border border-[#A660A3] bg-white py-2 text-sm font-bold text-[#A660A3]"
-                @click="copyDrawCouponCode"
-              >
-                複製優惠碼
-              </button>
-              <p v-if="drawCouponCopyFeedback" class="mt-2 text-xs text-[#009734]">
-                {{ drawCouponCopyFeedback }}
-              </p>
-              <p
-                v-if="!drawCouponCode && drawCouponRedemptionMethod !== 'qr_code'"
-                class="text-sm font-medium text-[#757575]"
-              >
-                優惠券已發送，請至優惠券頁查看。
-              </p>
-            </template>
           </div>
           <div v-if="drawIsConsolation" class="mt-3 flex justify-center">
             <span class="inline-flex rounded-sm bg-[rgba(244,159,37,0.12)] px-2 py-1 text-xs font-medium text-[#F49F25]">
