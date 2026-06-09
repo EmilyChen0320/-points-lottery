@@ -19,10 +19,9 @@ const errorMessage = ref('')
 const redeemErrorMessage = ref('')
 const redeemStatus = ref('idle')
 const coupon = ref(null)
-const couponCode = ref('')
-const userCouponCodeDetail = ref(null)
-const couponCodeLoading = ref(false)
-const copyFeedback = ref('')
+const myCouponUrl = ref('')
+const myCouponUrlLoading = ref(false)
+const myCouponUrlError = ref('')
 const currentPoints = ref(null)
 const activityId = computed(() => String(route.params.activityId ?? ''))
 const couponId = computed(() => String(route.params.couponId ?? ''))
@@ -63,39 +62,10 @@ const lineUserId = computed(() => {
   return userId.value || ''
 })
 
-const COUPON_CODE_PLACEHOLDER = '請至會員中心查看'
-
 const parsePoints = (value) => {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : 0
 }
-
-/** 從 API 物件取出優惠碼字串（支援巢狀 user_coupon_code 與多種欄位名） */
-const extractCouponCodeFromObject = (obj) => {
-  if (!obj || typeof obj !== 'object') return ''
-  const direct =
-    obj.code ||
-    obj.coupon_code ||
-    obj.redeem_code ||
-    obj.promotion_code ||
-    obj.serial_number
-  if (direct) return String(direct)
-  if (obj.user_coupon_code && typeof obj.user_coupon_code === 'object') {
-    const nested = extractCouponCodeFromObject(obj.user_coupon_code)
-    if (nested) return nested
-  }
-  return ''
-}
-
-const rawCouponCode = computed(() => {
-  const fromDetail = extractCouponCodeFromObject(userCouponCodeDetail.value)
-  if (fromDetail) return fromDetail
-  return couponCode.value ? String(couponCode.value) : ''
-})
-
-const displayCouponCode = computed(() => rawCouponCode.value || COUPON_CODE_PLACEHOLDER)
-
-const hasCopyableCouponCode = computed(() => Boolean(rawCouponCode.value) && !couponCodeLoading.value)
 
 const statusTitle = computed(() => (redeemStatus.value === 'success' ? '兌換成功' : '兌換失敗'))
 const statusChipText = computed(() =>
@@ -110,28 +80,6 @@ const formatDate = (value) => {
   const month = `${date.getMonth() + 1}`.padStart(2, '0')
   const day = `${date.getDate()}`.padStart(2, '0')
   return `${month}/${day}`
-}
-
-/**
- * 供 GET /line_users/:lineUserId/user_coupon_codes/:id 使用。
- * 兌換 API 的 result.data.id 常為「點數／兌換紀錄」ULID，與 user_coupon_codes 主鍵不同，不可當作此 id。
- */
-const resolveUserCouponCodeId = (response) => {
-  const result = response?.result ?? {}
-  const data = result?.data ?? {}
-  const nested = data?.user_coupon_code
-  const nestedId = nested?.id ?? nested?.user_coupon_code_id
-
-  if (nestedId !== undefined && nestedId !== null && nestedId !== '') {
-    return String(nestedId)
-  }
-  if (data?.user_coupon_code_id) {
-    return String(data.user_coupon_code_id)
-  }
-  if (result?.id) {
-    return String(result.id)
-  }
-  return ''
 }
 
 const toFriendlyRedeemErrorMessage = (error) => {
@@ -174,6 +122,35 @@ const fetchCouponInfo = async () => {
   }
 }
 
+const resetMyCouponUrl = () => {
+  myCouponUrl.value = ''
+  myCouponUrlLoading.value = false
+  myCouponUrlError.value = ''
+}
+
+const fetchMyCouponUrl = async () => {
+  resetMyCouponUrl()
+  myCouponUrlLoading.value = true
+
+  try {
+    const response = await pointActivityService.getLiffApps()
+    const apps = response?.result?.data ?? response?.data ?? {}
+    const url = String(apps?.my_coupon?.actions?.index?.url ?? '').trim()
+
+    if (!url) {
+      throw new Error('找不到票券夾連結')
+    }
+
+    myCouponUrl.value = url
+  } catch (error) {
+    myCouponUrl.value = ''
+    myCouponUrlError.value = '票券夾連結讀取失敗，請稍後再試'
+    console.error('取得票券夾 LIFF 連結失敗:', error)
+  } finally {
+    myCouponUrlLoading.value = false
+  }
+}
+
 const handleConfirmRedeem = async () => {
   if (!coupon.value || redeeming.value) return
   if (!lineUserId.value) {
@@ -191,32 +168,12 @@ const handleConfirmRedeem = async () => {
   redeemErrorMessage.value = ''
 
   try {
-    const response = await pointActivityService.redeemCoupon(activityId.value, {
+    await pointActivityService.redeemCoupon(activityId.value, {
       couponId: couponId.value,
       lineUserId: lineUserId.value,
     })
 
-    const resultData = response?.result?.data ?? {}
-    couponCode.value = extractCouponCodeFromObject(resultData)
-
-    const userCouponCodeId = resolveUserCouponCodeId(response)
-    // 兌換回應已含 code 時不必再打詳情，避免誤用紀錄 id 造成多餘 404
-    if (userCouponCodeId && !couponCode.value) {
-      couponCodeLoading.value = true
-      try {
-        const userCouponCodeResponse = await pointActivityService.getUserCouponCode(lineUserId.value, userCouponCodeId)
-        const detailPayload =
-          userCouponCodeResponse?.result?.data ?? userCouponCodeResponse?.result ?? null
-        userCouponCodeDetail.value =
-          detailPayload && typeof detailPayload === 'object' && !detailPayload.exception ? detailPayload : null
-      } catch (couponCodeError) {
-        userCouponCodeDetail.value = null
-        console.error('取得優惠碼詳情失敗:', couponCodeError)
-      } finally {
-        couponCodeLoading.value = false
-      }
-    }
-
+    await fetchMyCouponUrl()
     redeemStatus.value = 'success'
     if (currentPoints.value !== null) {
       currentPoints.value = Math.max(currentPoints.value - costPoints.value, 0)
@@ -229,19 +186,9 @@ const handleConfirmRedeem = async () => {
   }
 }
 
-const copyCouponCode = async () => {
-  const text = rawCouponCode.value
-  if (!text) return
-  copyFeedback.value = ''
-  try {
-    await navigator.clipboard.writeText(text)
-    copyFeedback.value = '已複製到剪貼簿'
-  } catch {
-    copyFeedback.value = '無法自動複製，請長按優惠碼手動選取'
-  }
-  window.setTimeout(() => {
-    copyFeedback.value = ''
-  }, 2500)
+const goToMyCoupon = () => {
+  if (!myCouponUrl.value) return
+  window.location.href = myCouponUrl.value
 }
 
 const backToRedeemHome = () => {
@@ -353,21 +300,18 @@ watch(
         style="border-width: 0.6px"
       >
         <h2 class="text-[14px] font-semibold leading-5 text-[#495057]">{{ coupon?.name || '優惠券' }}</h2>
-        <p class="mt-1 text-xs text-[#757575]">優惠碼</p>
-        <div class="mt-2 rounded-md bg-[rgba(166,96,163,0.05)] p-3">
-          <p class="text-[17px] font-bold tracking-[0.03em] text-[#A660A3]">
-            {{ couponCodeLoading ? '優惠碼讀取中...' : displayCouponCode }}
-          </p>
-        </div>
-        <p v-if="copyFeedback" class="mt-2 text-center text-xs text-[#009734]">{{ copyFeedback }}</p>
+        <p class="mt-2 text-sm font-medium text-[#495057]">已自動加入您的票券夾</p>
         <button
-          v-if="hasCopyableCouponCode"
           type="button"
-          class="mt-3 w-full rounded-md border border-[#A660A3] bg-white py-2 text-sm font-semibold text-[#A660A3]"
-          @click="copyCouponCode"
+          class="mt-3 w-full rounded-md bg-[#A660A3] py-3 text-[15px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+          :disabled="myCouponUrlLoading || !myCouponUrl"
+          @click="goToMyCoupon"
         >
-          複製優惠碼
+          {{ myCouponUrlLoading ? '票券夾連結讀取中...' : '前往票券夾' }}
         </button>
+        <p v-if="myCouponUrlError" class="mt-2 text-xs leading-4 text-[#d35b5b]">
+          {{ myCouponUrlError }}
+        </p>
       </article>
 
       <article
