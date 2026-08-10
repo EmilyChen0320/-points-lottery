@@ -44,7 +44,7 @@ const goBackToList = () => {
 </script>
 
 <template>
-  <main class="mx-auto min-h-screen w-full max-w-[393px] bg-white">
+  <main class="mx-auto min-h-screen w-full max-w-screen-sm bg-white">
     <section class="relative min-h-screen overflow-hidden bg-gradient-to-b from-[#aa5aaf] via-[#d5acd3] to-white">
       <div class="pointer-events-none absolute -left-12 top-28 h-36 w-36 rounded-full bg-white/10"></div>
       <div class="pointer-events-none absolute right-4 top-0 h-36 w-36 rounded-full bg-white/10"></div>

@@ -415,7 +415,7 @@ onBeforeUnmount(() => {
 
 <template>
   <main
-    class="mx-auto min-h-screen w-full max-w-[393px] bg-cover bg-top bg-no-repeat"
+    class="mx-auto min-h-screen w-full max-w-screen-sm bg-cover bg-top bg-no-repeat"
     :style="{ backgroundImage: `url(${backgroundImage})` }"
   >
     <NavBar :title="drawStatus === 'idle' ? (lottery?.name || '幸運大轉盤') : '抽獎結果'" />

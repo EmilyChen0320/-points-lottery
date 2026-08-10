@@ -3,7 +3,7 @@ import NavBar from '../components/layout/NavBar.vue'
 </script>
 
 <template>
-  <main class="mx-auto min-h-screen w-full max-w-[393px] bg-primary text-white">
+  <main class="mx-auto min-h-screen w-full max-w-screen-sm bg-primary text-white">
     <NavBar title="集點結果" />
     <section class="flex flex-col items-center px-4 pt-10">
       <div class="flex h-12 w-12 items-center justify-center rounded-full bg-white text-2xl text-success">

@@ -163,7 +163,7 @@ onMounted(fetchLotteryInfo)
 
 <template>
   <main
-    class="mx-auto min-h-screen w-full max-w-[393px] bg-cover bg-top bg-no-repeat"
+    class="mx-auto min-h-screen w-full max-w-screen-sm bg-cover bg-top bg-no-repeat"
     :style="{ backgroundImage: `url(${backgroundImage})` }"
   >
     <NavBar :title="redeemStatus === 'idle' ? (lottery?.name || '抽獎活動') : '兌換結果'" />
