@@ -136,7 +136,7 @@ export const useActivityStore = defineStore('activity', {
             lastPage: 1,
           }
         }
-        this.errorMessage = error?.response?.message || error?.message || '取得集點活動列表失敗'
+        this.errorMessage = error?.message || '取得集點活動列表失敗'
         throw error
       } finally {
         this.loading = false

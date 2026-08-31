@@ -83,9 +83,7 @@ const formatDate = (value) => {
 }
 
 const toFriendlyRedeemErrorMessage = (error) => {
-  const rawMessage = String(
-    error?.message || error?.response?.result?.message || error?.response?.message || '',
-  )
+  const rawMessage = String(error?.message || '')
   if (rawMessage.includes('liffId is necessary for liff.init')) {
     return 'LIFF 尚未初始化完成，請稍後再試'
   }

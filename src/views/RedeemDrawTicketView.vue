@@ -5,6 +5,7 @@ import { storeToRefs } from 'pinia'
 import NavBar from '../components/layout/NavBar.vue'
 import backgroundImage from '../assets/images/background.png'
 import barcodeScanImage from '../assets/images/barcode-scan.png'
+import { getTerminalLotteryErrorTitle } from '../constants/errorCode'
 import pointActivityService from '../services/pointActivityService'
 import { useUserStore } from '../stores/userStore'
 
@@ -26,6 +27,7 @@ const loading = ref(true)
 const redeeming = ref(false)
 const errorMessage = ref('')
 const redeemErrorMessage = ref('')
+const redeemErrorCode = ref('')
 const redeemStatus = ref('idle')
 const lottery = ref(null)
 const currentPoints = ref(0)
@@ -45,7 +47,10 @@ const redeemButtonDisabled = computed(
   () => redeeming.value || !hasEnoughPoints.value || !hasRemainingEntries.value,
 )
 const drawAtText = computed(() => formatDateTime(lottery.value?.draw_at))
-const statusTitle = computed(() => (redeemStatus.value === 'success' ? '抽獎券取得成功' : '兌換失敗'))
+const statusTitle = computed(() => {
+  if (redeemStatus.value === 'success') return '抽獎券取得成功'
+  return getTerminalLotteryErrorTitle(redeemErrorCode.value) || '兌換失敗'
+})
 const statusChipText = computed(() => {
   if (redeemStatus.value === 'success') {
     return `已扣除 ${pointsRequired.value} 點，剩餘 ${currentPoints.value} 點`
@@ -120,6 +125,7 @@ const handleRedeemTicket = async () => {
 
   redeeming.value = true
   redeemErrorMessage.value = ''
+  redeemErrorCode.value = ''
 
   try {
     await pointActivityService.redeemLottery(activityId.value, {
@@ -134,6 +140,7 @@ const handleRedeemTicket = async () => {
     redeemStatus.value = 'success'
   } catch (error) {
     redeemStatus.value = 'fail'
+    redeemErrorCode.value = error?.code || ''
     redeemErrorMessage.value = error?.message || '兌換抽獎券失敗，請稍後再試'
   } finally {
     redeeming.value = false
@@ -270,6 +277,7 @@ onMounted(fetchLotteryInfo)
       </article>
 
       <section class="mt-10 space-y-4">
+        <!-- 兌換失敗（含獎品抽完、活動未設定）重送不會改變結果，故不提供重試入口 -->
         <button
           v-if="redeemStatus === 'success'"
           type="button"

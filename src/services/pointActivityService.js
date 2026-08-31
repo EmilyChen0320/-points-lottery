@@ -1,4 +1,4 @@
-import liffService from './liffService'
+import liffService from './liffService.js'
 
 const API_BASE_URL = window.endpoint?.lineCrmApiBaseUrl ?? 'https://feature-line-crm.aitago.tw/api'
 
@@ -31,6 +31,21 @@ const buildQueryString = (params = {}) => {
   return query ? `?${query}` : ''
 }
 
+const getApiMessage = (responseBody) => {
+  const message = typeof responseBody?.message === 'string' ? responseBody.message.trim() : ''
+  return message || '請求失敗'
+}
+
+export class ApiError extends Error {
+  constructor(responseBody, status) {
+    super(getApiMessage(responseBody))
+    this.name = 'ApiError'
+    this.status = status
+    this.code = typeof responseBody?.code === 'string' ? responseBody.code : ''
+    this.result = responseBody?.result
+  }
+}
+
 const request = async (path, { method = 'GET', params = {}, body } = {}) => {
   const response = await fetch(`${API_BASE_URL}${path}${buildQueryString(params)}`, {
     method,
@@ -45,15 +60,7 @@ const request = async (path, { method = 'GET', params = {}, body } = {}) => {
   const result = await response.json().catch(() => null)
 
   if (!response.ok) {
-    const apiMessage =
-      result?.message ||
-      result?.result?.message ||
-      (typeof result?.result === 'string' ? result.result : '') ||
-      '請求失敗'
-    const error = new Error(apiMessage)
-    error.response = result
-    error.status = response.status
-    throw error
+    throw new ApiError(result, response.status)
   }
 
   return result

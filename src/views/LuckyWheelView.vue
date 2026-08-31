@@ -7,6 +7,7 @@ import NavBar from '../components/layout/NavBar.vue'
 import backgroundImage from '../assets/images/background.png'
 import giftGroupImage from '../assets/images/Group.png'
 import spinWheelAnimation from '../assets/animations/spin-wheel.json'
+import { getTerminalLotteryErrorTitle } from '../constants/errorCode'
 import pointActivityService from '../services/pointActivityService'
 import { useUserStore } from '../stores/userStore'
 
@@ -40,6 +41,7 @@ const loading = ref(true)
 const drawing = ref(false)
 const errorMessage = ref('')
 const drawErrorMessage = ref('')
+const drawErrorCode = ref('')
 const drawStatus = ref('idle')
 /** 最近一次 POST redeem/lotteries 的 lottery_record（含 prize） */
 const lastLotteryRecord = ref(null)
@@ -197,6 +199,11 @@ const resultTitle = computed(() => {
   return '抽獎完成'
 })
 
+const drawResultTitle = computed(() => {
+  if (drawStatus.value === 'success') return resultTitle.value
+  return getTerminalLotteryErrorTitle(drawErrorCode.value) || resultTitle.value
+})
+
 const resultChipText = computed(() => {
   if (drawStatus.value === 'success') {
     return `已扣除 ${drawCost.value} 點，剩餘 ${currentPoints.value} 點`
@@ -342,6 +349,7 @@ const handleDraw = async () => {
 
   drawing.value = true
   drawErrorMessage.value = ''
+  drawErrorCode.value = ''
 
   try {
     const redeemResponse = await pointActivityService.redeemLottery(activityId.value, {
@@ -359,6 +367,7 @@ const handleDraw = async () => {
     drawStatus.value = 'success'
   } catch (error) {
     drawStatus.value = 'fail'
+    drawErrorCode.value = error?.code || ''
     drawErrorMessage.value = error?.message || '抽獎失敗，請稍後再試'
   } finally {
     drawing.value = false
@@ -392,6 +401,7 @@ watch(
 
 const drawAgain = () => {
   lastLotteryRecord.value = null
+  drawErrorCode.value = ''
   resetMyCouponUrl()
   drawStatus.value = 'idle'
 }
@@ -493,7 +503,7 @@ onBeforeUnmount(() => {
         <div class="flex h-[42px] w-[42px] items-center justify-center rounded-full border-2 border-white text-xl font-bold text-white">
           {{ drawStatus === 'success' ? '✓' : '✕' }}
         </div>
-        <h1 class="mt-3 text-[20px] font-bold text-white">{{ resultTitle }}</h1>
+        <h1 class="mt-3 text-[20px] font-bold text-white">{{ drawResultTitle }}</h1>
         <p
           class="mt-2 inline-flex items-center justify-center rounded-[24px] border border-white bg-[#A660A3] px-8 py-2 text-[14px] font-medium leading-6 text-white"
         >
@@ -572,6 +582,7 @@ onBeforeUnmount(() => {
       </article>
 
       <section class="mt-10 space-y-4">
+        <!-- 抽獎失敗（含獎品抽完、活動未設定）重送不會改變結果，故不提供重試入口 -->
         <button
           v-if="drawStatus === 'success'"
           type="button"
