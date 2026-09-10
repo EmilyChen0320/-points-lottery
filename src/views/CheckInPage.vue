@@ -6,6 +6,7 @@ import { useUserStore } from '../stores/userStore'
 import NavBar from '../components/layout/NavBar.vue'
 import backgroundImage from '../assets/images/background.png'
 import pointActivityService from '../services/pointActivityService'
+import { normalizeCheckInSpot } from '../utils/checkInSpot'
 
 const router = useRouter()
 const route = useRoute()
@@ -63,33 +64,6 @@ const heroStyle = computed(() => {
 })
 
 const activityTitle = computed(() => activity.value?.name || '打卡集點活動')
-
-const normalizeSpot = (item = {}) => {
-  const distance = item.distance_meters ?? item.distance
-  const successfulCount = toNumber(item.successful_checkin_count, 0)
-  const checkedIn = Boolean(item.checked_in ?? item.is_checked_in ?? false)
-  const isWithinRadius = Boolean(item.is_within_radius)
-  const canCheckin =
-    item.can_checkin == null ? isWithinRadius && !checkedIn : Boolean(item.can_checkin)
-
-  return {
-    ...item,
-    id: item.id ?? item.checkin_spot_id ?? item.spot_id,
-    name: item.name || '未命名打卡點',
-    address: item.address || '',
-    lat: toNumber(item.lat ?? item.latitude, null),
-    lng: toNumber(item.lng ?? item.longitude, null),
-    radius: toNumber(item.radius_meters ?? item.radius, 100),
-    distance: distance == null ? null : Math.round(toNumber(distance, 0)),
-    canCheckin,
-    isWithinRadius,
-    cannotReason: item.cannot_checkin_reason || '',
-    checkedIn,
-    hasSuccessfulCheckin: successfulCount > 0,
-    successfulCount,
-    nextAvailableTime: item.next_available_time || '',
-  }
-}
 
 const rowsFromResponse = (response = {}) => {
   const result = response.result
@@ -156,7 +130,7 @@ const loadCheckinSpots = async () => {
     lng: userLocation.value.lng,
     per_page: 100,
   })
-  checkinSpots.value = rowsFromResponse(response).map(normalizeSpot)
+  checkinSpots.value = rowsFromResponse(response).map(normalizeCheckInSpot)
 }
 
 const refreshPage = async () => {
@@ -367,18 +341,29 @@ watch(
             class="rounded-lg p-4"
             :class="spot.canCheckin ? 'border border-[#A660A3] bg-white' : 'bg-[#f5f5f5]'"
           >
-            <h3 class="text-[14px] font-semibold leading-5 text-[#495057]">{{ spot.name }}</h3>
-            <p class="mt-1 text-xs leading-4 text-[#757575]">{{ spot.address || '未提供地址' }}</p>
-            <p class="mt-1 text-xs leading-4 text-[#A660A3]">● 距離 {{ formatDistance(spot.distance) }}</p>
-            <p v-if="spot.hasSuccessfulCheckin" class="mt-1 text-xs leading-4 text-[#757575]">
-              已打卡 {{ spot.successfulCount }} 次
-            </p>
-            <p v-if="!spot.canCheckin" class="mt-1 text-xs leading-4 text-[#909090]">
-              {{ getSpotStatusText(spot) }}
-            </p>
-            <p v-if="!spot.canCheckin && spot.nextAvailableTime" class="mt-1 text-xs leading-4 text-[#909090]">
-              下次可打卡：{{ formatDateTime(spot.nextAvailableTime) }}
-            </p>
+            <div class="flex items-start gap-3">
+              <img
+                v-if="spot.image"
+                :src="spot.image"
+                :alt="`${spot.name}圖片`"
+                class="h-16 w-16 shrink-0 rounded-lg object-cover"
+                @error="$event.currentTarget.hidden = true"
+              >
+              <div class="min-w-0 flex-1">
+                <h3 class="text-[14px] font-semibold leading-5 text-[#495057]">{{ spot.name }}</h3>
+                <p class="mt-1 text-xs leading-4 text-[#757575]">{{ spot.address || '未提供地址' }}</p>
+                <p class="mt-1 text-xs leading-4 text-[#A660A3]">● 距離 {{ formatDistance(spot.distance) }}</p>
+                <p v-if="spot.hasSuccessfulCheckin" class="mt-1 text-xs leading-4 text-[#757575]">
+                  已打卡 {{ spot.successfulCount }} 次
+                </p>
+                <p v-if="!spot.canCheckin" class="mt-1 text-xs leading-4 text-[#909090]">
+                  {{ getSpotStatusText(spot) }}
+                </p>
+                <p v-if="!spot.canCheckin && spot.nextAvailableTime" class="mt-1 text-xs leading-4 text-[#909090]">
+                  下次可打卡：{{ formatDateTime(spot.nextAvailableTime) }}
+                </p>
+              </div>
+            </div>
 
             <button
               v-if="spot.canCheckin"
@@ -418,13 +403,22 @@ watch(
           <article
             v-for="spot in checkedInSpots"
             :key="spot.id"
-            class="rounded-lg bg-[#f5f5f5] px-4 py-3"
+            class="flex items-start gap-3 rounded-lg bg-[#f5f5f5] px-4 py-3"
           >
-            <h3 class="text-[14px] font-medium leading-5 text-[#909090]">{{ spot.name }} ✓</h3>
-            <p class="mt-1 text-xs leading-4 text-[#b0b0b0]">已打卡 {{ spot.successfulCount }} 次</p>
-            <p v-if="spot.nextAvailableTime" class="mt-1 text-xs leading-4 text-[#b0b0b0]">
-              下次可打卡：{{ formatDateTime(spot.nextAvailableTime) }}
-            </p>
+            <img
+              v-if="spot.image"
+              :src="spot.image"
+              :alt="`${spot.name}圖片`"
+              class="h-12 w-12 shrink-0 rounded-lg object-cover opacity-70"
+              @error="$event.currentTarget.hidden = true"
+            >
+            <div class="min-w-0 flex-1">
+              <h3 class="text-[14px] font-medium leading-5 text-[#909090]">{{ spot.name }} ✓</h3>
+              <p class="mt-1 text-xs leading-4 text-[#b0b0b0]">已打卡 {{ spot.successfulCount }} 次</p>
+              <p v-if="spot.nextAvailableTime" class="mt-1 text-xs leading-4 text-[#b0b0b0]">
+                下次可打卡：{{ formatDateTime(spot.nextAvailableTime) }}
+              </p>
+            </div>
           </article>
         </div>
       </section>
