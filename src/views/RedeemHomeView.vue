@@ -6,6 +6,7 @@ import { useUserStore } from '../stores/userStore'
 import NavBar from '../components/layout/NavBar.vue'
 import backgroundImage from '../assets/images/background.png'
 import pointActivityService from '../services/pointActivityService'
+import { hasRewardItems } from '../utils/rewardDisplay'
 
 const router = useRouter()
 const route = useRoute()
@@ -26,6 +27,7 @@ const userPoints = ref(0)
 const couponRewards = ref([])
 const drawRewards = ref([])
 const hasCheckInSpots = ref(false)
+const hasCouponRewards = computed(() => hasRewardItems(couponRewards.value))
 
 const parsePoints = (value) => {
   const parsed = Number(value)
@@ -363,12 +365,12 @@ watch(
         </article>
       </section>
 
-      <section class="bg-white px-4 pb-4 pt-3 shadow-[0_0_1px_0_rgba(0,0,0,0.05)]">
+      <section
+        v-if="hasCouponRewards"
+        class="bg-white px-4 pb-4 pt-3 shadow-[0_0_1px_0_rgba(0,0,0,0.05)]"
+      >
         <h2 class="mb-[11px] text-sm font-semibold text-[#495057]">優惠券</h2>
-        <div v-if="couponRewards.length === 0" class="rounded-lg bg-[#faf9fc] px-4 py-8 text-center text-sm text-[#757575]">
-          目前沒有可兌換的優惠券
-        </div>
-        <div v-else class="space-y-[11px]">
+        <div class="space-y-[11px]">
           <article
             v-for="item in couponRewards"
             :key="item.id"
