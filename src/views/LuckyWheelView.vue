@@ -11,6 +11,7 @@ import { getTerminalLotteryErrorTitle } from '../constants/errorCode'
 import pointActivityService from '../services/pointActivityService'
 import { useUserStore } from '../stores/userStore'
 import { formatDrawPrizeTitle } from '../utils/rewardDisplay'
+import { shouldShowLotteryProbability } from '../utils/lotteryDisplay'
 
 const router = useRouter()
 const route = useRoute()
@@ -54,6 +55,7 @@ const myCouponUrlLoading = ref(false)
 const myCouponUrlError = ref('')
 
 const drawCost = computed(() => Number(lottery.value?.points_required ?? 0))
+const showProbability = computed(() => shouldShowLotteryProbability(lottery.value))
 const prizeItems = computed(() =>
   (lottery.value?.prizes ?? []).map((item) => ({
     id: item.id,
@@ -487,7 +489,7 @@ onBeforeUnmount(() => {
               >
                 安慰獎
               </span>
-              <span class="mt-1 block font-medium">{{ item.rate }}</span>
+              <span v-if="showProbability" class="mt-1 block font-medium">{{ item.rate }}</span>
             </div>
           </li>
         </ul>
