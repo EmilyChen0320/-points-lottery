@@ -10,6 +10,7 @@ import spinWheelAnimation from '../assets/animations/spin-wheel.json'
 import { getTerminalLotteryErrorTitle } from '../constants/errorCode'
 import pointActivityService from '../services/pointActivityService'
 import { useUserStore } from '../stores/userStore'
+import { formatDrawPrizeTitle } from '../utils/rewardDisplay'
 
 const router = useRouter()
 const route = useRoute()
@@ -141,7 +142,7 @@ const drawPrizeTitle = computed(() => {
   const p = drawPrize.value
   if (!p || typeof p !== 'object') return ''
   if (isDrawCouponPrize.value) return drawCouponName.value || '優惠券'
-  return String(p.name || p.content || '').trim()
+  return formatDrawPrizeTitle(p)
 })
 const drawPrizeSubtitle = computed(() => {
   const p = drawPrize.value
